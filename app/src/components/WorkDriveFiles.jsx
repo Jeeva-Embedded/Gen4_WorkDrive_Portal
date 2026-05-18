@@ -121,6 +121,7 @@ function fileIcon(name) {
 export default function WorkDriveFiles({ addToast }) {
   const { user } = useAuth()
   const role = user?.role || 'VIEWER'
+  const { state: navState } = (typeof window !== 'undefined' && window.history.state) ? { state: window.history.state?.usr } : { state: null }
   const [rootFolders, setRootFolders] = useState([])
   const [activeRoot, setActiveRoot] = useState(null)
   const [breadcrumb, setBreadcrumb] = useState([])
@@ -135,8 +136,12 @@ export default function WorkDriveFiles({ addToast }) {
   useEffect(() => {
     api.workdrive.folders()
       .then((d) => {
-        setRootFolders(d.folders || [])
-        if (d.folders?.length) openRoot(d.folders[0])
+        const fols = d.folders || []
+        setRootFolders(fols)
+        // if navigated from dashboard with a specific folder, open it
+        const targetId = window.history.state?.usr?.folderId
+        const target = targetId ? fols.find((f) => f.id === targetId) : null
+        openRoot(target || fols[0])
       })
       .catch(() => addToast('Failed to load WorkDrive folders', 'error'))
   }, [])

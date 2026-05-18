@@ -1,6 +1,9 @@
-import React, { useState, useEffect, useMemo } from 'react'
-import { useLocation, useSearchParams, useNavigate } from 'react-router-dom'
-import { IconEye, IconDownload, IconPencil, IconTrash, IconSearch, IconX, IconLock, IconShield, IconFilter } from '@tabler/icons-react'
+import React, { useState, useEffect, useMemo, useCallback } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
+import {
+  IconEye, IconDownload, IconPencil, IconTrash, IconSearch, IconX,
+  IconLock, IconShield, IconFilter, IconFolder, IconFile, IconChevronRight,
+} from '@tabler/icons-react'
 import { api } from '../utils/api'
 import { useAuth } from '../context/AuthContext'
 import { can, ROLES } from '../utils/roles'
@@ -45,9 +48,9 @@ export default function Documents({ addToast }) {
   const role = user?.role || 'VIEWER'
   const isAdmin = role === ROLES.SUPER_ADMIN || role === ROLES.ADMIN
   const location = useLocation()
-  const [searchParams] = useSearchParams()
   const navigate = useNavigate()
 
+  // Portal DB state
   const [docs, setDocs] = useState([])
   const [folders, setFolders] = useState([])
   const [loading, setLoading] = useState(true)
@@ -60,44 +63,108 @@ export default function Documents({ addToast }) {
   const [permDoc, setPermDoc] = useState(null)
   const [permValue, setPermValue] = useState('ALL')
 
+  // WorkDrive browsing state
+  const [activeFolder, setActiveFolder] = useState(null) // { id, name } of selected workspace
+  const [wdPath, setWdPath] = useState([])              // breadcrumb stack
+  const [wdFiles, setWdFiles] = useState([])
+  const [wdLoading, setWdLoading] = useState(false)
+
   const catSlug = location.pathname.startsWith('/documents/')
     ? decodeURIComponent(location.pathname.slice('/documents/'.length)) : undefined
 
-  const activeCat = useMemo(() => {
-    if (!catSlug) return 'all'
-    const match = folders.find((f) =>
-      f.name.toLowerCase().replace(/\s+/g, '-') === catSlug.toLowerCase()
-    )
-    return match ? match.name : catSlug
-  }, [catSlug, folders])
-
-  function load() {
+  // Load folders + portal docs once
+  function loadPortal() {
     setLoading(true)
     Promise.all([api.documents.list(), api.workdrive.folders()])
       .then(([docsRes, foldersRes]) => {
         setDocs(docsRes.documents || [])
-        setFolders(foldersRes.folders || [])
+        const fols = foldersRes.folders || []
+        setFolders(fols)
+        // If URL has a workspace slug, auto-select that workspace tab
+        if (catSlug && catSlug !== 'all') {
+          const match = fols.find((f) =>
+            f.name.toLowerCase().replace(/\s+/g, '-') === catSlug.toLowerCase()
+          )
+          if (match) openWorkspace(match, fols)
+        }
       })
-      .catch(() => addToast('Failed to load documents', 'error'))
+      .catch(() => addToast('Failed to load', 'error'))
       .finally(() => setLoading(false))
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { loadPortal() }, [])
 
+  // When URL changes to a workspace slug after initial load
+  useEffect(() => {
+    if (!folders.length) return
+    if (!catSlug || catSlug === 'all') {
+      setActiveFolder(null)
+      setWdPath([])
+      setWdFiles([])
+      return
+    }
+    const match = folders.find((f) =>
+      f.name.toLowerCase().replace(/\s+/g, '-') === catSlug.toLowerCase()
+    )
+    if (match && match.id !== activeFolder?.id) {
+      openWorkspace(match, folders)
+    }
+  }, [catSlug, folders])
+
+  function openWorkspace(folder, fols) {
+    setActiveFolder(folder)
+    setWdPath([{ id: folder.id, name: folder.name }])
+    fetchWdFiles(folder.id)
+  }
+
+  function fetchWdFiles(folderId) {
+    setWdLoading(true)
+    setWdFiles([])
+    api.workdrive.files(folderId)
+      .then((r) => setWdFiles(r.items || []))
+      .catch(() => addToast('Failed to load files', 'error'))
+      .finally(() => setWdLoading(false))
+  }
+
+  function openSubfolder(file) {
+    setWdPath((p) => [...p, { id: file.id, name: file.name }])
+    fetchWdFiles(file.id)
+  }
+
+  function navBreadcrumb(idx) {
+    const crumb = wdPath[idx]
+    setWdPath((p) => p.slice(0, idx + 1))
+    fetchWdFiles(crumb.id)
+  }
+
+  function navCat(folder) {
+    if (!folder) {
+      setActiveFolder(null)
+      setWdPath([])
+      setWdFiles([])
+      navigate('/documents')
+    } else {
+      const slug = folder.name.toLowerCase().replace(/\s+/g, '-')
+      navigate(`/documents/${encodeURIComponent(slug)}`)
+    }
+  }
+
+  // Portal docs filters
   const authors = useMemo(() => [...new Set(docs.map((d) => d.author).filter(Boolean))], [docs])
-
   const filtered = useMemo(() => docs.filter((d) => {
-    const catMatch = activeCat === 'all' || d.category?.toLowerCase() === activeCat.toLowerCase()
     const q = search.toLowerCase()
     const textMatch = !q || d.name?.toLowerCase().includes(q) || d.author?.toLowerCase().includes(q) || d.notes?.toLowerCase().includes(q)
     const accessMatch = filterAccess === 'all' || (d.access_role || 'ALL') === filterAccess
     const authorMatch = !filterAuthor || d.author === filterAuthor
-    return catMatch && textMatch && accessMatch && authorMatch
-  }), [docs, activeCat, search, filterAccess, filterAuthor])
+    return textMatch && accessMatch && authorMatch
+  }), [docs, search, filterAccess, filterAuthor])
 
-  function navCat(slug) {
-    slug === 'all' ? navigate('/documents') : navigate(`/documents/${encodeURIComponent(slug)}`)
-  }
+  // WorkDrive search filter
+  const wdFiltered = useMemo(() => {
+    if (!search) return wdFiles
+    const q = search.toLowerCase()
+    return wdFiles.filter((f) => f.name?.toLowerCase().includes(q))
+  }, [wdFiles, search])
 
   async function handleDownload(d) {
     window.open(d.url || d.download_url, '_blank')
@@ -115,7 +182,7 @@ export default function Documents({ addToast }) {
         addToast('Delete request submitted — waiting for admin approval', 'info')
       } else {
         addToast(`"${d.name}" deleted`, 'info')
-        load()
+        loadPortal()
       }
     } catch (err) { addToast(err.message, 'error') }
   }
@@ -130,6 +197,7 @@ export default function Documents({ addToast }) {
   }
 
   const activeFilters = (filterAccess !== 'all' ? 1 : 0) + (filterAuthor ? 1 : 0)
+  const isWorkspaceTab = !!activeFolder
 
   return (
     <div className="page">
@@ -138,17 +206,19 @@ export default function Documents({ addToast }) {
         <div style={{ display: 'flex', gap: 8 }}>
           <div className="search-bar">
             <IconSearch size={15} />
-            <input placeholder="Search name, author, notes…" value={search} onChange={(e) => setSearch(e.target.value)} />
+            <input placeholder="Search…" value={search} onChange={(e) => setSearch(e.target.value)} />
             {search && <button onClick={() => setSearch('')}><IconX size={13} /></button>}
           </div>
-          <button className={`btn btn-outline btn-sm ${showFilter ? 'active' : ''}`} onClick={() => setShowFilter((v) => !v)}>
-            <IconFilter size={14} />
-            {activeFilters > 0 && <span className="sidebar-badge" style={{ marginLeft: 4 }}>{activeFilters}</span>}
-          </button>
+          {!isWorkspaceTab && (
+            <button className={`btn btn-outline btn-sm ${showFilter ? 'active' : ''}`} onClick={() => setShowFilter((v) => !v)}>
+              <IconFilter size={14} />
+              {activeFilters > 0 && <span className="sidebar-badge" style={{ marginLeft: 4 }}>{activeFilters}</span>}
+            </button>
+          )}
         </div>
       </div>
 
-      {showFilter && (
+      {!isWorkspaceTab && showFilter && (
         <div className="filter-bar">
           <div className="form-row" style={{ gap: 12, marginBottom: 0 }}>
             <div className="form-group" style={{ marginBottom: 0, minWidth: 160 }}>
@@ -175,78 +245,158 @@ export default function Documents({ addToast }) {
         </div>
       )}
 
-      {/* Category tabs — WorkDrive folders */}
+      {/* Workspace tabs */}
       <div className="tab-bar" style={{ overflowX: 'auto' }}>
-        <button className={`tab-btn ${activeCat === 'all' ? 'active' : ''}`} onClick={() => navCat('all')}>
-          All
+        <button className={`tab-btn ${!isWorkspaceTab ? 'active' : ''}`} onClick={() => navCat(null)}>
+          All Uploads
         </button>
-        {folders.map((f) => {
-          const slug = f.name.toLowerCase().replace(/\s+/g, '-')
-          return (
-            <button
-              key={f.id}
-              className={`tab-btn ${activeCat.toLowerCase() === f.name.toLowerCase() ? 'active' : ''}`}
-              onClick={() => navCat(slug)}
-            >
-              {f.name}
-            </button>
-          )
-        })}
+        {folders.map((f) => (
+          <button
+            key={f.id}
+            className={`tab-btn ${activeFolder?.id === f.id ? 'active' : ''}`}
+            onClick={() => navCat(f)}
+          >
+            {f.name}
+          </button>
+        ))}
       </div>
 
-      {loading ? <div className="loading-state">Loading…</div> : filtered.length === 0 ? (
-        <div className="empty-state">{search ? 'No documents match your search.' : 'No documents in this category yet.'}</div>
-      ) : (
-        <div className="table-wrap">
-          <table className="doc-table">
-            <thead>
-              <tr>
-                <th>Document Name</th><th>Category</th><th>Author</th>
-                <th>Uploaded</th><th>Modified by</th><th>Last Modified</th>
-                <th>Access</th><th>Size</th><th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((d) => (
-                <tr key={d.ROWID} className="doc-row">
-                  <td className="doc-name-cell"><span>📄</span><span>{d.name}</span></td>
-                  <td><span className="badge">{d.category}</span></td>
-                  <td style={{ fontWeight: 600, color: 'var(--primary)' }}>{d.author || '—'}</td>
-                  <td style={{ color: 'var(--muted)', fontSize: 13 }}>{fmtDate(d.uploaded_date)}</td>
-                  <td style={{ fontSize: 13 }}>{d.modified_by || d.author || '—'}</td>
-                  <td style={{ color: 'var(--muted)', fontSize: 13 }}>{fmtDate(d.last_modified)}</td>
-                  <td><PermissionBadge accessRole={d.access_role} /></td>
-                  <td>{d.size || '—'}</td>
-                  <td className="actions-cell">
-                    <button className="icon-btn" title="View" onClick={() => setViewDoc(d)}><IconEye size={15} /></button>
-                    <button className="icon-btn" title="Download" onClick={() => handleDownload(d)}><IconDownload size={15} /></button>
-                    {can(role, 'edit') && (
-                      <button className="icon-btn" title="Edit" onClick={() => setEditDoc(d)}><IconPencil size={15} /></button>
-                    )}
-                    {isAdmin && (
-                      <button className="icon-btn" title="Change permission" onClick={() => { setPermDoc(d); setPermValue(d.access_role || 'ALL') }}>
-                        <IconShield size={15} />
-                      </button>
-                    )}
-                    {(can(role, 'delete') || role === ROLES.EDITOR) && (
-                      <button
-                        className={`icon-btn ${isAdmin ? 'danger' : ''}`}
-                        title={isAdmin ? 'Delete' : 'Request deletion'}
-                        onClick={() => handleDelete(d)}
-                      >
-                        <IconTrash size={15} />
-                      </button>
-                    )}
-                  </td>
-                </tr>
+      {/* WorkDrive mode */}
+      {isWorkspaceTab ? (
+        <>
+          {/* Breadcrumb */}
+          {wdPath.length > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '8px 0', fontSize: 13, color: 'var(--muted)', flexWrap: 'wrap' }}>
+              {wdPath.map((crumb, i) => (
+                <React.Fragment key={crumb.id}>
+                  {i > 0 && <IconChevronRight size={13} />}
+                  <button
+                    style={{
+                      background: 'none', border: 'none', cursor: i < wdPath.length - 1 ? 'pointer' : 'default',
+                      color: i < wdPath.length - 1 ? 'var(--primary)' : 'var(--text)',
+                      fontWeight: i === wdPath.length - 1 ? 600 : 400, fontSize: 13, padding: '2px 4px',
+                    }}
+                    onClick={() => i < wdPath.length - 1 && navBreadcrumb(i)}
+                  >
+                    {crumb.name}
+                  </button>
+                </React.Fragment>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </div>
+          )}
+
+          {wdLoading ? (
+            <div className="loading-state">Loading…</div>
+          ) : wdFiltered.length === 0 ? (
+            <div className="empty-state">{search ? 'No files match your search.' : 'This folder is empty.'}</div>
+          ) : (
+            <div className="table-wrap">
+              <table className="doc-table">
+                <thead>
+                  <tr><th>Name</th><th>Type</th><th>Size</th><th>Modified</th><th>Actions</th></tr>
+                </thead>
+                <tbody>
+                  {wdFiltered.map((f) => (
+                    <tr key={f.id} className="doc-row">
+                      <td className="doc-name-cell">
+                        {f.is_folder
+                          ? <IconFolder size={16} color="#0891b2" />
+                          : <IconFile size={16} color="#6366f1" />}
+                        <span
+                          style={f.is_folder ? { cursor: 'pointer', color: 'var(--primary)', fontWeight: 500 } : {}}
+                          onClick={() => f.is_folder && openSubfolder(f)}
+                        >
+                          {f.name}
+                        </span>
+                      </td>
+                      <td>{f.is_folder ? 'Folder' : (f.type || '—')}</td>
+                      <td>{f.size || '—'}</td>
+                      <td style={{ color: 'var(--muted)', fontSize: 13 }}>{f.modified || '—'}</td>
+                      <td className="actions-cell">
+                        {f.is_folder ? (
+                          <button className="btn btn-outline btn-sm" onClick={() => openSubfolder(f)}>
+                            Open
+                          </button>
+                        ) : (
+                          <>
+                            {f.permalink && (
+                              <button className="btn btn-outline btn-sm" onClick={() => window.open(f.permalink, '_blank')}>
+                                <IconEye size={14} /> View
+                              </button>
+                            )}
+                            {f.download_url && (
+                              <button className="icon-btn" title="Download" onClick={() => window.open(f.download_url, '_blank')}>
+                                <IconDownload size={15} />
+                              </button>
+                            )}
+                          </>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
+      ) : (
+        /* Portal uploads mode (All tab) */
+        <>
+          {loading ? <div className="loading-state">Loading…</div> : filtered.length === 0 ? (
+            <div className="empty-state">{search ? 'No documents match your search.' : 'No documents uploaded yet.'}</div>
+          ) : (
+            <div className="table-wrap">
+              <table className="doc-table">
+                <thead>
+                  <tr>
+                    <th>Document Name</th><th>Category</th><th>Author</th>
+                    <th>Uploaded</th><th>Modified by</th><th>Last Modified</th>
+                    <th>Access</th><th>Size</th><th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((d) => (
+                    <tr key={d.ROWID} className="doc-row">
+                      <td className="doc-name-cell"><span>📄</span><span>{d.name}</span></td>
+                      <td><span className="badge">{d.category}</span></td>
+                      <td style={{ fontWeight: 600, color: 'var(--primary)' }}>{d.author || '—'}</td>
+                      <td style={{ color: 'var(--muted)', fontSize: 13 }}>{fmtDate(d.uploaded_date)}</td>
+                      <td style={{ fontSize: 13 }}>{d.modified_by || d.author || '—'}</td>
+                      <td style={{ color: 'var(--muted)', fontSize: 13 }}>{fmtDate(d.last_modified)}</td>
+                      <td><PermissionBadge accessRole={d.access_role} /></td>
+                      <td>{d.size || '—'}</td>
+                      <td className="actions-cell">
+                        <button className="icon-btn" title="View" onClick={() => setViewDoc(d)}><IconEye size={15} /></button>
+                        <button className="icon-btn" title="Download" onClick={() => handleDownload(d)}><IconDownload size={15} /></button>
+                        {can(role, 'edit') && (
+                          <button className="icon-btn" title="Edit" onClick={() => setEditDoc(d)}><IconPencil size={15} /></button>
+                        )}
+                        {isAdmin && (
+                          <button className="icon-btn" title="Change permission" onClick={() => { setPermDoc(d); setPermValue(d.access_role || 'ALL') }}>
+                            <IconShield size={15} />
+                          </button>
+                        )}
+                        {(can(role, 'delete') || role === ROLES.EDITOR) && (
+                          <button
+                            className={`icon-btn ${isAdmin ? 'danger' : ''}`}
+                            title={isAdmin ? 'Delete' : 'Request deletion'}
+                            onClick={() => handleDelete(d)}
+                          >
+                            <IconTrash size={15} />
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
       )}
 
       {viewDoc && <ViewerPanel doc={viewDoc} onClose={() => setViewDoc(null)} addToast={addToast} />}
-      {editDoc && <DocModal doc={editDoc} onClose={() => { setEditDoc(null); load() }} addToast={addToast} />}
+      {editDoc && <DocModal doc={editDoc} onClose={() => { setEditDoc(null); loadPortal() }} addToast={addToast} />}
 
       {permDoc && (
         <div className="modal-backdrop" onClick={() => setPermDoc(null)}>

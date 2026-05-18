@@ -18,6 +18,8 @@ router.get('/folders', async (req, res) => {
     const folders = raw.map((f) => ({
       id: f.id,
       name: f.attributes?.name || f.id,
+      files_count: f.attributes?.storage_info?.files_count || 0,
+      size: f.attributes?.storage_info?.size || '',
     }))
     res.json({ folders })
   } catch (err) {
