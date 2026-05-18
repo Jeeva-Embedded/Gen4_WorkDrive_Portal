@@ -5,6 +5,10 @@ const { getDatastore } = require('../utils/datastore')
 const tokenCache = new Map()
 const CACHE_TTL = 5 * 60 * 1000
 
+// Comma-separated emails that always get SUPER_ADMIN (bootstraps production)
+const SUPER_ADMINS = (process.env.SUPER_ADMIN_EMAILS || '')
+  .split(',').map((e) => e.trim().toLowerCase()).filter(Boolean)
+
 async function authMiddleware(req, res, next) {
   const authHeader = req.headers.authorization
   if (!authHeader?.startsWith('Bearer ')) {
@@ -23,6 +27,18 @@ async function authMiddleware(req, res, next) {
     const profile = await verifyUserToken(accessToken)
     const email = (profile.email || profile.Email || '').toLowerCase()
     if (!email) return res.status(401).json({ error: 'Could not verify Zoho identity' })
+
+    // SUPER_ADMIN_EMAILS env var always wins (bootstraps fresh deployments)
+    if (SUPER_ADMINS.includes(email)) {
+      req.user = {
+        email,
+        name: profile.name || profile.Display_Name || profile.first_name || email.split('@')[0],
+        role: 'SUPER_ADMIN',
+        rowId: null,
+      }
+      tokenCache.set(accessToken, { user: req.user, expiresAt: Date.now() + CACHE_TTL })
+      return next()
+    }
 
     const db = getDatastore(req)
     const rows = await db.zcql().executeZCQLQuery(

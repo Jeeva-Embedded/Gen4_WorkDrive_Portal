@@ -104,7 +104,7 @@ export default function Sidebar({ open, onClose, addToast }) {
             <div className="user-avatar">{user?.name?.[0]?.toUpperCase() || 'U'}</div>
             <div className="user-info">
               <div className="user-name">{user?.name || 'User'}</div>
-              <div className="user-email">{user?.email || ''}</div>
+              <div className="user-role">{user?.role || 'Viewer'}</div>
             </div>
           </div>
           <button className="icon-btn" title="Logout" onClick={handleLogout}>
