@@ -1,0 +1,19 @@
+{
+  "name": "gen4-workdrive-api",
+  "version": "1.0.0",
+  "description": "Catalyst backend for Gen4 WorkDrive Portal",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "axios": "^1.7.0",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^4.19.0",
+    "form-data": "^4.0.0",
+    "multer": "^1.4.5-lts.1",
+    "nodemailer": "^8.0.7",
+    "zcatalyst-sdk-node": "*"
+  }
+}

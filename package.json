@@ -1,0 +1,13 @@
+{
+  "name": "gen4-workdrive-portal",
+  "version": "1.0.0",
+  "scripts": {
+    "build": "cd functions/api && npm install && cd ../../app && npm install && npm run build",
+    "start": "node functions/api/server.js",
+    "dev:api": "node functions/api/server.js",
+    "dev:app": "cd app && npm run dev"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

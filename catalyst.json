@@ -1,0 +1,19 @@
+{
+  "project_name": "gen4-workdrive-portal",
+  "project_id": "39968000000013047",
+  "project_key": "gen4-workdrive-portal",
+  "functions": [
+    {
+      "name": "api",
+      "type": "Advanced IO",
+      "runtime": "Node.js 18",
+      "memory": 256,
+      "timeout": 60,
+      "entry_point": "functions/api/index.js"
+    }
+  ],
+  "web": {
+    "app_name": "app",
+    "app_location": "app/dist"
+  }
+}

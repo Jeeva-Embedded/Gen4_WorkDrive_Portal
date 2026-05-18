@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.env
+.env.local
+.catalyst
+*.log
+.DS_Store
+Thumbs.db
+app/dist/
+.local-db.json
+test-smtp.js
+test-email.js
