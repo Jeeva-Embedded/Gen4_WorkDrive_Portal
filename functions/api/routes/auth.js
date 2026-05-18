@@ -3,6 +3,9 @@ const { exchangeCode } = require('../utils/zohoApi')
 const { authMiddleware } = require('../middleware/auth')
 const { getDatastore } = require('../utils/datastore')
 
+const SUPER_ADMIN_EMAILS = (process.env.SUPER_ADMIN_EMAILS || '')
+  .split(',').map((e) => e.trim().toLowerCase()).filter(Boolean)
+
 const router = express.Router()
 
 function decodeIdToken(idToken) {
@@ -34,6 +37,11 @@ router.post('/token', async (req, res) => {
     if (!email) return res.status(400).json({ error: 'Could not get user email from token' })
 
     const name = profile.name || profile.first_name || email.split('@')[0]
+
+    // SUPER_ADMIN_EMAILS always wins — skip DB lookup for these emails
+    if (SUPER_ADMIN_EMAILS.includes(email)) {
+      return res.json({ user: { email, name, role: 'SUPER_ADMIN' }, access_token: tokens.access_token })
+    }
 
     const db = getDatastore(req)
     const zcql = db.zcql()
