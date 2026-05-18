@@ -56,7 +56,7 @@ export default function Sidebar({ open, onClose, addToast }) {
             </NavLink>
           )}
 
-          {(role === ROLES.SUPER_ADMIN || role === ROLES.ADMIN) && (
+          {(role === ROLES.SUPER_ADMIN || role === ROLES.ADMIN || role === ROLES.EDITOR) && (
             <NavLink to="/workdrive" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
               <IconFolder size={17} /><span>WorkDrive Files</span>
             </NavLink>

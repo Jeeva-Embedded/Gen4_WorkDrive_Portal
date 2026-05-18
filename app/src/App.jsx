@@ -55,7 +55,7 @@ function AppShell() {
               </ProtectedRoute>
             } />
             <Route path="/workdrive" element={
-              <ProtectedRoute roles={[ROLES.SUPER_ADMIN, ROLES.ADMIN]}>
+              <ProtectedRoute roles={[ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.EDITOR]}>
                 <WorkDriveFiles addToast={addToast} />
               </ProtectedRoute>
             } />
