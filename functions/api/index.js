@@ -27,7 +27,7 @@ app.use(express.json({ limit: '10mb' }))
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok', service: 'gen4-workdrive-portal' }))
 
-app.get('/api/test-email', authMiddleware, async (req, res) => {
+app.get('/api/test-email', async (req, res) => {
   try {
     const result = await testSmtp()
     res.json({ success: true, ...result, smtp_user: process.env.SMTP_USER, to: process.env.NOTIFY_EMAILS })
