@@ -1,7 +1,8 @@
 const express = require('express')
 const { authMiddleware, requireRole } = require('../middleware/auth')
 const { listFolderFiles, listTeamFolders, deleteFile, renameFile, moveFile, copyFile, createFolder } = require('../utils/zohoApi')
-const { incrementWdDownload } = require('../utils/datastore')
+const { incrementWdDownload, getDatastore } = require('../utils/datastore')
+const { sendAccessRequestEmail, sendAccessGrantedEmail } = require('../utils/mailer')
 
 const router = express.Router()
 router.use(authMiddleware)
@@ -12,11 +13,21 @@ function zohoError(err) {
   return err.message
 }
 
-// All team workspaces (shown in left panel)
+async function canAccessFolder(db, folderId, userEmail, userRole) {
+  if (userRole === 'SUPER_ADMIN' || userRole === 'ADMIN') return true
+  const rows = await db.zcql().executeZCQLQuery(
+    `SELECT * FROM folder_permissions WHERE ROWID = '${folderId}'`
+  )
+  const perm = rows?.[0]?.folder_permissions
+  if (!perm || perm.is_open !== false) return true
+  const allowed = (perm.allowed_emails || []).map(e => e.toLowerCase())
+  return allowed.includes(userEmail.toLowerCase())
+}
+
+// All team workspaces — visible to everyone
 router.get('/folders', async (req, res) => {
-  const userToken = req.headers.authorization?.slice(7)
   try {
-    const raw = await listTeamFolders(userToken)
+    const raw = await listTeamFolders()
     const folders = raw.map((f) => ({
       id: f.id,
       name: f.attributes?.name || f.id,
@@ -29,11 +40,14 @@ router.get('/folders', async (req, res) => {
   }
 })
 
-// List files/subfolders inside any folder
+// List files/subfolders — with portal-level permission check
 router.get('/files/:folderId', async (req, res) => {
-  const userToken = req.headers.authorization?.slice(7)
+  const db = getDatastore(req)
   try {
-    const raw = await listFolderFiles(req.params.folderId, userToken)
+    const allowed = await canAccessFolder(db, req.params.folderId, req.user.email, req.user.role)
+    if (!allowed) return res.status(403).json({ error: 'unauthorized', folder_id: req.params.folderId })
+
+    const raw = await listFolderFiles(req.params.folderId)
     const items = raw.map((f) => ({
       id: f.id,
       name: f.attributes?.display_attr_name || f.attributes?.name || f.id,
@@ -52,7 +66,145 @@ router.get('/files/:folderId', async (req, res) => {
   }
 })
 
-// DELETE /workdrive/files/:fileId  (moves to trash via PATCH status:51)
+// GET /workdrive/permissions — all folder permission records (admin+)
+router.get('/permissions', requireRole('SUPER_ADMIN', 'ADMIN'), async (req, res) => {
+  try {
+    const db = getDatastore(req)
+    const rows = await db.zcql().executeZCQLQuery('SELECT * FROM folder_permissions')
+    res.json({ permissions: rows.map(r => r.folder_permissions) })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// POST /workdrive/permissions/:folderId — set folder permissions (admin+)
+router.post('/permissions/:folderId', requireRole('SUPER_ADMIN', 'ADMIN'), async (req, res) => {
+  const { folderId } = req.params
+  const { folder_name, is_open, allowed_emails } = req.body
+  try {
+    const db = getDatastore(req)
+    const permData = {
+      ROWID: folderId,
+      folder_id: folderId,
+      folder_name: folder_name || folderId,
+      is_open: is_open !== false,
+      allowed_emails: (allowed_emails || []).map(e => e.toLowerCase()),
+      updated_by: req.user.email,
+      updated_at: new Date().toISOString(),
+    }
+    const existing = await db.zcql().executeZCQLQuery(
+      `SELECT * FROM folder_permissions WHERE ROWID = '${folderId}'`
+    )
+    if (existing?.[0]) {
+      await db.datastore().table('folder_permissions').updateRow({ data: permData })
+    } else {
+      await db.datastore().table('folder_permissions').insertRow({ data: permData })
+    }
+    res.json({ success: true })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// GET /workdrive/access-requests — admins see all, others see own
+router.get('/access-requests', async (req, res) => {
+  try {
+    const db = getDatastore(req)
+    const rows = await db.zcql().executeZCQLQuery('SELECT * FROM wd_access_requests')
+    let reqs = rows.map(r => r.wd_access_requests)
+    if (req.user.role !== 'SUPER_ADMIN' && req.user.role !== 'ADMIN') {
+      reqs = reqs.filter(r => r.requester_email === req.user.email)
+    }
+    res.json({ requests: reqs })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// POST /workdrive/access-requests — submit access request
+router.post('/access-requests', async (req, res) => {
+  const { folder_id, folder_name } = req.body
+  if (!folder_id) return res.status(400).json({ error: 'folder_id required' })
+  try {
+    const db = getDatastore(req)
+    const all = await db.zcql().executeZCQLQuery('SELECT * FROM wd_access_requests')
+    const dupe = all.map(r => r.wd_access_requests).find(r =>
+      r.folder_id === folder_id && r.requester_email === req.user.email && r.status === 'pending'
+    )
+    if (dupe) return res.status(409).json({ error: 'You already have a pending request for this folder' })
+
+    const row = await db.datastore().table('wd_access_requests').insertRow({
+      data: {
+        folder_id,
+        folder_name: folder_name || folder_id,
+        requester_email: req.user.email,
+        requester_name: req.user.name,
+        status: 'pending',
+        requested_at: new Date().toISOString(),
+        reviewed_by: null,
+        reviewed_at: null,
+      }
+    })
+
+    sendAccessRequestEmail(folder_name, req.user.name, req.user.email).catch(() => {})
+    res.json({ success: true, id: row.ROWID })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// PATCH /workdrive/access-requests/:id — approve or reject (admin+)
+router.patch('/access-requests/:id', requireRole('SUPER_ADMIN', 'ADMIN'), async (req, res) => {
+  const { id } = req.params
+  const { action } = req.body
+  if (!['approve', 'reject'].includes(action)) return res.status(400).json({ error: 'action must be approve or reject' })
+  try {
+    const db = getDatastore(req)
+    const rows = await db.zcql().executeZCQLQuery(`SELECT * FROM wd_access_requests WHERE ROWID = '${id}'`)
+    const record = rows?.[0]?.wd_access_requests
+    if (!record) return res.status(404).json({ error: 'Request not found' })
+
+    await db.datastore().table('wd_access_requests').updateRow({
+      data: {
+        ROWID: id,
+        status: action === 'approve' ? 'approved' : 'rejected',
+        reviewed_by: req.user.email,
+        reviewed_at: new Date().toISOString(),
+      }
+    })
+
+    if (action === 'approve') {
+      const { folder_id, folder_name, requester_email } = record
+      const permRows = await db.zcql().executeZCQLQuery(
+        `SELECT * FROM folder_permissions WHERE ROWID = '${folder_id}'`
+      )
+      const perm = permRows?.[0]?.folder_permissions
+      const allowed = [...new Set([...(perm?.allowed_emails || []), requester_email.toLowerCase()])]
+      const permData = {
+        ROWID: folder_id,
+        folder_id,
+        folder_name,
+        is_open: perm?.is_open !== undefined ? perm.is_open : false,
+        allowed_emails: allowed,
+        updated_by: req.user.email,
+        updated_at: new Date().toISOString(),
+      }
+      if (perm) {
+        await db.datastore().table('folder_permissions').updateRow({ data: permData })
+      } else {
+        permData.is_open = false
+        await db.datastore().table('folder_permissions').insertRow({ data: permData })
+      }
+      sendAccessGrantedEmail(requester_email, record.requester_name, folder_name).catch(() => {})
+    }
+
+    res.json({ success: true })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// DELETE /workdrive/files/:fileId
 router.delete('/files/:fileId', requireRole('SUPER_ADMIN', 'ADMIN'), async (req, res) => {
   try {
     await deleteFile(req.params.fileId)
@@ -86,24 +238,18 @@ router.patch('/files/:fileId/move', requireRole('SUPER_ADMIN', 'ADMIN'), async (
   } catch (err) {
     const detail = zohoError(err)
     console.error('[workdrive] move error:', detail)
-
-    // R508 = cross-workspace blocked → try copy then trash original
     if (detail.includes('R508')) {
       try {
         await copyFile(req.params.fileId, folder_id)
-        await deleteFile(req.params.fileId).catch(() => {}) // move to trash
+        await deleteFile(req.params.fileId).catch(() => {})
         return res.json({ success: true })
       } catch (copyErr) {
-        console.error('[workdrive] copy fallback error:', zohoError(copyErr))
-        return res.status(500).json({ error: 'Cannot move between workspaces — copy also failed. Please move directly in WorkDrive.' })
+        return res.status(500).json({ error: 'Cannot move between workspaces — copy also failed.' })
       }
     }
-
-    // R510 = no permission on source file
     if (detail.includes('R510')) {
-      return res.status(500).json({ error: 'No permission to move this file — it may be owned by another user.' })
+      return res.status(500).json({ error: 'No permission to move this file.' })
     }
-
     res.status(500).json({ error: detail })
   }
 })

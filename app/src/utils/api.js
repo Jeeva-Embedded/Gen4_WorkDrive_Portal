@@ -21,7 +21,12 @@ async function request(path, options = {}) {
     return
   }
   const data = await res.json()
-  if (!res.ok) throw new Error(data.error || 'Request failed')
+  if (!res.ok) {
+    const err = new Error(data.error || 'Request failed')
+    err.status = res.status
+    err.data = data
+    throw err
+  }
   return data
 }
 
@@ -71,6 +76,11 @@ export const api = {
     moveFile: (fileId, folder_id) => request(`/workdrive/files/${fileId}/move`, { method: 'PATCH', body: JSON.stringify({ folder_id }) }),
     createFolder: (parent_id, name) => request('/workdrive/folders/create', { method: 'POST', body: JSON.stringify({ parent_id, name }) }),
     trackDownload: (file_id) => request('/workdrive/track-download', { method: 'POST', body: JSON.stringify({ file_id }) }).catch(() => {}),
+    permissions: () => request('/workdrive/permissions'),
+    setPermissions: (folderId, data) => request(`/workdrive/permissions/${folderId}`, { method: 'POST', body: JSON.stringify(data) }),
+    accessRequests: () => request('/workdrive/access-requests'),
+    requestAccess: (data) => request('/workdrive/access-requests', { method: 'POST', body: JSON.stringify(data) }),
+    reviewAccessRequest: (id, action) => request(`/workdrive/access-requests/${id}`, { method: 'PATCH', body: JSON.stringify({ action }) }),
   },
 
   stats: {

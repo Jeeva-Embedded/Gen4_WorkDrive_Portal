@@ -146,4 +146,43 @@ async function sendDeleteReviewedEmail(toEmail, docName, action, reviewedBy) {
     </div>`)
 }
 
-module.exports = { sendMemberAddedEmail, sendFileUploadedEmail, sendDeleteRequestEmail, sendDeleteReviewedEmail, testSmtp }
+async function sendAccessRequestEmail(folderName, requesterName, requesterEmail) {
+  const adminEmails = process.env.NOTIFY_EMAILS
+  if (!adminEmails) return
+  const portalUrl = process.env.FRONTEND_URL || 'https://gen4-workdrive-portal.onrender.com'
+  return sendMail(adminEmails, `Access Request: "${folderName}"`, `
+    <div style="font-family:Inter,sans-serif;max-width:480px;margin:0 auto">
+      <div style="background:#1a5276;padding:24px;border-radius:12px 12px 0 0;text-align:center">
+        <div style="color:#fff;font-size:24px;font-weight:800">G4</div>
+        <div style="color:#a9d46e;font-size:14px">Gen4 Manufacturing WorkDrive Portal</div>
+      </div>
+      <div style="background:#fff;padding:24px;border:1px solid #dde3ea;border-radius:0 0 12px 12px">
+        <h2 style="color:#1a5276">🔒 Folder Access Request</h2>
+        <table style="margin-top:16px;width:100%;border-collapse:collapse">
+          <tr><td style="padding:6px 0;color:#5d6b7a">Folder</td><td style="font-weight:600">${folderName}</td></tr>
+          <tr><td style="padding:6px 0;color:#5d6b7a">Requested by</td><td>${requesterName} (${requesterEmail})</td></tr>
+          <tr><td style="padding:6px 0;color:#5d6b7a">Time</td><td>${new Date().toLocaleString()}</td></tr>
+        </table>
+        <a href="${portalUrl}/workdrive" style="display:inline-block;margin-top:20px;padding:10px 24px;background:#1a5276;color:#fff;border-radius:8px;text-decoration:none;font-weight:600">Review in Portal</a>
+      </div>
+    </div>`)
+}
+
+async function sendAccessGrantedEmail(toEmail, toName, folderName) {
+  const portalUrl = process.env.FRONTEND_URL || 'https://gen4-workdrive-portal.onrender.com'
+  return sendMail(toEmail, `Access Granted: "${folderName}"`, `
+    <div style="font-family:Inter,sans-serif;max-width:480px;margin:0 auto">
+      <div style="background:#1a5276;padding:24px;border-radius:12px 12px 0 0;text-align:center">
+        <div style="color:#fff;font-size:24px;font-weight:800">G4</div>
+        <div style="color:#a9d46e;font-size:14px">Gen4 Manufacturing WorkDrive Portal</div>
+      </div>
+      <div style="background:#fff;padding:24px;border:1px solid #dde3ea;border-radius:0 0 12px 12px">
+        <h2 style="color:#15803d">✅ Access Granted</h2>
+        <p style="color:#5d6b7a">Hi ${toName || toEmail},</p>
+        <p style="color:#5d6b7a;margin-top:8px">Your request to access <strong>"${folderName}"</strong> has been approved. You can now view this folder in the portal.</p>
+        <a href="${portalUrl}/workdrive" style="display:inline-block;margin-top:20px;padding:10px 24px;background:#7dba3a;color:#fff;border-radius:8px;text-decoration:none;font-weight:600">Open WorkDrive</a>
+      </div>
+    </div>`)
+}
+
+module.exports = { sendMemberAddedEmail, sendFileUploadedEmail, sendDeleteRequestEmail, sendDeleteReviewedEmail, sendAccessRequestEmail, sendAccessGrantedEmail, testSmtp }
