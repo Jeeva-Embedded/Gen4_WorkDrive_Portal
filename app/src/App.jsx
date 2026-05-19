@@ -13,6 +13,7 @@ import WorkDriveFiles from './components/WorkDriveFiles'
 import UserManagement from './components/UserManagement'
 import DeleteRequests from './components/DeleteRequests'
 import MyRequests from './components/MyRequests'
+import ModelTree from './components/ModelTree'
 import Reports from './components/Reports'
 import { ROLES } from './utils/roles'
 
@@ -68,6 +69,7 @@ function AppShell() {
               </ProtectedRoute>
             } />
             <Route path="/my-requests" element={<MyRequests addToast={addToast} />} />
+            <Route path="/model-tree" element={<ModelTree addToast={addToast} />} />
             <Route path="/reports" element={
               <ProtectedRoute roles={[ROLES.SUPER_ADMIN, ROLES.ADMIN]}>
                 <Reports addToast={addToast} />

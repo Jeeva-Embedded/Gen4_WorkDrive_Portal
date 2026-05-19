@@ -472,6 +472,32 @@ div:hover > .cat-card-manage-btn { opacity: 1 !important; }
   font-size: 12px; font-weight: 600; cursor: pointer;
 }
 
+/* ── MODEL TREE ── */
+.tree-container {
+  background: var(--card); border-radius: 12px;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.tree-row {
+  display: flex; align-items: center; gap: 6px;
+  padding: 7px 12px; border-bottom: 1px solid var(--bg);
+  transition: background .1s; min-height: 36px;
+}
+.tree-row-folder { cursor: pointer; }
+.tree-row-folder:hover { background: #f8fafc; }
+.tree-row:last-child { border-bottom: none; }
+.tree-chevron { width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.tree-icon { flex-shrink: 0; display: flex; align-items: center; }
+.tree-name { font-size: 13px; color: var(--text); flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tree-badge { padding: 1px 7px; border-radius: 8px; font-size: 10px; font-weight: 700; flex-shrink: 0; }
+.tree-count { font-size: 11px; color: var(--muted); flex-shrink: 0; }
+.tree-spinner {
+  width: 12px; height: 12px; border-radius: 50%;
+  border: 2px solid var(--border); border-top-color: var(--primary);
+  animation: spin .6s linear infinite; display: inline-block;
+}
+
 /* ── MODAL ── */
 .modal-backdrop {
   position: fixed; inset: 0; background: rgba(0,0,0,.35);
