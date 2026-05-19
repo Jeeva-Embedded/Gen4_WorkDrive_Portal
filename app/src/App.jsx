@@ -12,6 +12,7 @@ import UploadPage from './components/UploadPage'
 import WorkDriveFiles from './components/WorkDriveFiles'
 import UserManagement from './components/UserManagement'
 import DeleteRequests from './components/DeleteRequests'
+import MyRequests from './components/MyRequests'
 import Reports from './components/Reports'
 import { ROLES } from './utils/roles'
 
@@ -70,6 +71,7 @@ function AppShell() {
                 <DeleteRequests addToast={addToast} />
               </ProtectedRoute>
             } />
+            <Route path="/my-requests" element={<MyRequests addToast={addToast} />} />
             <Route path="/reports" element={
               <ProtectedRoute roles={[ROLES.SUPER_ADMIN, ROLES.ADMIN]}>
                 <Reports addToast={addToast} />

@@ -10,15 +10,17 @@ router.get('/', async (req, res) => {
   const { from, to } = req.query
   try {
     const db = getDatastore(req)
-    const [docRows, delRows, userRows] = await Promise.all([
+    const [docRows, delRows, userRows, wdDelRows] = await Promise.all([
       db.zcql().executeZCQLQuery('SELECT * FROM documents ORDER BY uploaded_date DESC'),
       db.zcql().executeZCQLQuery('SELECT * FROM delete_requests ORDER BY created_at DESC'),
       db.zcql().executeZCQLQuery('SELECT * FROM user_roles ORDER BY added_date DESC'),
+      db.zcql().executeZCQLQuery('SELECT * FROM wd_delete_requests ORDER BY requested_at DESC'),
     ])
 
-    const docs   = (docRows  || []).map(r => r.documents)
-    const dels   = (delRows  || []).map(r => r.delete_requests)
-    const users  = (userRows || []).map(r => r.user_roles)
+    const docs   = (docRows   || []).map(r => r.documents)
+    const dels   = (delRows   || []).map(r => r.delete_requests)
+    const users  = (userRows  || []).map(r => r.user_roles)
+    const wdDels = (wdDelRows || []).map(r => r.wd_delete_requests)
 
     const activities = []
 
@@ -72,6 +74,25 @@ router.get('/', async (req, res) => {
         downloads:    '',
         notes:        d.reviewed_at ? `Reviewed: ${new Date(d.reviewed_at).toLocaleString()}` : '',
         rowid:        d.ROWID,
+      })
+    })
+
+    // WorkDrive delete requests
+    wdDels.forEach(d => {
+      const statusLabel = d.status === 'approved' ? 'Approved' : d.status === 'rejected' ? 'Rejected' : 'Pending'
+      activities.push({
+        date:         d.requested_at || '',
+        type:         'Delete Request',
+        file_name:    d.file_name || '',
+        category:     d.folder_name || '',
+        sub_category: 'WorkDrive',
+        size:         '',
+        performed_by: d.requested_by_name || d.requested_by_email || '',
+        reviewed_by:  d.reviewed_by || '',
+        status:       statusLabel,
+        downloads:    '',
+        notes:        d.reviewed_at ? `Reviewed: ${new Date(d.reviewed_at).toLocaleString()}` : '',
+        rowid:        'wd_' + d.ROWID,
       })
     })
 

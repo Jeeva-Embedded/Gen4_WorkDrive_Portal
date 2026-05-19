@@ -3,7 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import {
   IconLayoutDashboard, IconFiles, IconUpload,
   IconFolder, IconUsers, IconX, IconLogout,
-  IconTrash, IconChevronDown, IconChevronRight, IconChartBar,
+  IconTrash, IconChevronDown, IconChevronRight, IconChartBar, IconClock,
 } from '@tabler/icons-react'
 import { useAuth } from '../context/AuthContext'
 import { ROLES } from '../utils/roles'
@@ -61,6 +61,10 @@ export default function Sidebar({ open, onClose, addToast }) {
               <IconFolder size={17} /><span>WorkDrive Files</span>
             </NavLink>
           )}
+
+          <NavLink to="/my-requests" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
+            <IconClock size={17} /><span>My Requests</span>
+          </NavLink>
 
           {(role === ROLES.SUPER_ADMIN || role === ROLES.ADMIN) && (
             <NavLink to="/users" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
