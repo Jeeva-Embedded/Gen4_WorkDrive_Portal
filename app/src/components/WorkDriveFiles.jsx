@@ -466,10 +466,9 @@ export default function WorkDriveFiles({ addToast }) {
         <div className="workdrive-folders">
           <div className="workdrive-folders-title">Folders</div>
           {rootFolders.map((f) => (
-            <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <div key={f.id} className="folder-item-row">
               <button
                 className={`folder-item ${activeRoot?.id === f.id ? 'active' : ''}`}
-                style={{ flex: 1 }}
                 onClick={() => openRoot(f)}
               >
                 <IconFolder size={16} />
@@ -477,12 +476,11 @@ export default function WorkDriveFiles({ addToast }) {
               </button>
               {isAdmin && (
                 <button
-                  className="icon-btn"
-                  title="Manage access"
-                  style={{ padding: 4, flexShrink: 0, opacity: 0.6 }}
+                  className="folder-manage-btn"
+                  title="Manage folder access"
                   onClick={(e) => { e.stopPropagation(); setPermModal(f) }}
                 >
-                  <IconSettings size={13} />
+                  <IconSettings size={14} />
                 </button>
               )}
             </div>
