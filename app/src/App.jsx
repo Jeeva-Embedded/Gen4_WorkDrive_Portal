@@ -56,11 +56,7 @@ function AppShell() {
                 <UploadPage addToast={addToast} />
               </ProtectedRoute>
             } />
-            <Route path="/workdrive" element={
-              <ProtectedRoute roles={[ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.EDITOR]}>
-                <WorkDriveFiles addToast={addToast} />
-              </ProtectedRoute>
-            } />
+            <Route path="/workdrive" element={<WorkDriveFiles addToast={addToast} />} />
             <Route path="/users" element={
               <ProtectedRoute roles={[ROLES.SUPER_ADMIN, ROLES.ADMIN]}>
                 <UserManagement addToast={addToast} />

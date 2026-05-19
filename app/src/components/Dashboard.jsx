@@ -95,7 +95,7 @@ export default function Dashboard({ addToast }) {
         <div className="cat-grid">
           {folders.map((f, i) => (
             <div key={f.id} style={{ position: 'relative' }}>
-              <div className="cat-card" onClick={() => navigate(`/documents/${encodeURIComponent(f.name.toLowerCase().replace(/\s+/g, '-'))}`)}>
+              <div className="cat-card" onClick={() => navigate('/workdrive', { state: { openFolderId: f.id, openFolderName: f.name } })}>
                 <div className="cat-card-icon" style={{ color: FOLDER_COLORS[i % FOLDER_COLORS.length] }}>
                   <IconFolder size={26} />
                 </div>

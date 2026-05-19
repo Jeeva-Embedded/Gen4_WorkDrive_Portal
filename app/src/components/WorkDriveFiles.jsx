@@ -376,17 +376,23 @@ export default function WorkDriveFiles({ addToast }) {
   const [accessRequests, setAccessRequests] = useState([])
   const [deleteRequests, setDeleteRequests] = useState([])
 
-  // Load folders on mount; open permissions modal if navigated from Dashboard
+  // Load folders on mount; detect navigation intent from location state
   useEffect(() => {
     api.workdrive.folders()
       .then((d) => {
         const fols = d.folders || []
         setRootFolders(fols)
-        const { permFolderId, permFolderName } = location.state || {}
+        const { permFolderId, permFolderName, openFolderId, openFolderName } = location.state || {}
         if (permFolderId) {
+          // Gear icon from Dashboard → open folder + permissions modal
           const target = fols.find(f => f.id === permFolderId) || { id: permFolderId, name: permFolderName || permFolderId }
           openRoot(target)
           setPermModal(target)
+          window.history.replaceState({}, '')
+        } else if (openFolderId) {
+          // Workspace card from Dashboard → open that folder directly
+          const target = fols.find(f => f.id === openFolderId) || { id: openFolderId, name: openFolderName || openFolderId }
+          openRoot(target)
           window.history.replaceState({}, '')
         } else {
           const targetId = window.history.state?.usr?.folderId
