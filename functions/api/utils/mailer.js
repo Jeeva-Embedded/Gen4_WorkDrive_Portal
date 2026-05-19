@@ -1,16 +1,18 @@
 const nodemailer = require('nodemailer')
 
 function makeTransporter() {
-  const port = parseInt(process.env.SMTP_PORT) || 465
   return nodemailer.createTransport({
-    host: process.env.SMTP_HOST || 'smtp.zoho.in',
-    port,
-    secure: port !== 587,
+    host: 'smtp.zoho.in',
+    port: 587,
+    secure: false,          // STARTTLS on port 587 (port 465 is blocked on Render)
     auth: {
       user: process.env.SMTP_USER,
       pass: process.env.SMTP_PASS,
     },
     tls: { rejectUnauthorized: false },
+    connectionTimeout: 8000,
+    greetingTimeout:   5000,
+    socketTimeout:     8000,
   })
 }
 

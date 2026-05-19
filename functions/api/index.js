@@ -28,17 +28,16 @@ app.use(express.json({ limit: '10mb' }))
 app.get('/api/health', (req, res) => res.json({ status: 'ok', service: 'gen4-workdrive-portal' }))
 
 app.get('/api/test-email', async (req, res) => {
+  const guard = setTimeout(() => {
+    if (!res.headersSent) res.status(408).json({ success: false, error: 'SMTP connection timed out — check credentials and SMTP access in Zoho Mail settings.' })
+  }, 12000)
   try {
     const result = await testSmtp()
-    res.json({ success: true, ...result, smtp_user: process.env.SMTP_USER, to: process.env.NOTIFY_EMAILS })
+    clearTimeout(guard)
+    if (!res.headersSent) res.json({ success: true, ...result, smtp_user: process.env.SMTP_USER, to: process.env.NOTIFY_EMAILS })
   } catch (err) {
-    res.status(500).json({
-      success: false,
-      error: err.message,
-      smtp_user: process.env.SMTP_USER || '(not set)',
-      smtp_host: process.env.SMTP_HOST || 'smtp.zoho.in',
-      smtp_port: process.env.SMTP_PORT || '465',
-    })
+    clearTimeout(guard)
+    if (!res.headersSent) res.status(500).json({ success: false, error: err.message, smtp_user: process.env.SMTP_USER || '(not set)' })
   }
 })
 
