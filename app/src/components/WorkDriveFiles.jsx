@@ -1,4 +1,5 @@
-import React, { useEffect, useState, useCallback } from 'react'
+import React, { useEffect, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import {
   IconFolder, IconFolderOpen, IconDownload, IconRefresh, IconChevronRight,
   IconArrowLeft, IconTrash, IconPencil, IconArrowsMove, IconCheck,
@@ -6,7 +7,6 @@ import {
 } from '@tabler/icons-react'
 import { api } from '../utils/api'
 import { useAuth } from '../context/AuthContext'
-import { can } from '../utils/roles'
 
 // ── Move Modal ────────────────────────────────────────────────────────────────
 function MoveModal({ item, rootFolders, onMove, onClose }) {
@@ -107,9 +107,15 @@ function MoveModal({ item, rootFolders, onMove, onClose }) {
 }
 
 // ── Folder Permissions Modal (admin) ──────────────────────────────────────────
+const ROLE_OPTIONS = [
+  { value: 'none',   label: 'No Access',  color: '#9ca3af' },
+  { value: 'VIEWER', label: 'Viewer',     color: '#15803d' },
+  { value: 'EDITOR', label: 'Editor',     color: '#b45309' },
+]
+
 function PermissionsModal({ folder, users, onClose, onSave }) {
   const [isOpen, setIsOpen] = useState(true)
-  const [allowed, setAllowed] = useState([])
+  const [members, setMembers] = useState([]) // [{email, role}]
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
@@ -119,20 +125,26 @@ function PermissionsModal({ folder, users, onClose, onSave }) {
         const perm = permissions.find(p => p.folder_id === folder.id)
         if (perm) {
           setIsOpen(perm.is_open !== false)
-          setAllowed(perm.allowed_emails || [])
+          setMembers(perm.members || [])
         } else {
           setIsOpen(true)
-          setAllowed([])
+          setMembers([])
         }
       })
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [folder.id])
 
-  function toggleUser(email) {
-    setAllowed(prev =>
-      prev.includes(email) ? prev.filter(e => e !== email) : [...prev, email]
-    )
+  function getMemberRole(email) {
+    return members.find(m => m.email === email.toLowerCase())?.role || 'none'
+  }
+
+  function setMemberRole(email, role) {
+    const lc = email.toLowerCase()
+    setMembers(prev => {
+      const filtered = prev.filter(m => m.email !== lc)
+      return role === 'none' ? filtered : [...filtered, { email: lc, role }]
+    })
   }
 
   async function handleSave() {
@@ -141,7 +153,7 @@ function PermissionsModal({ folder, users, onClose, onSave }) {
       await api.workdrive.setPermissions(folder.id, {
         folder_name: folder.name,
         is_open: isOpen,
-        allowed_emails: isOpen ? [] : allowed,
+        members: isOpen ? [] : members,
       })
       onSave()
       onClose()
@@ -152,9 +164,11 @@ function PermissionsModal({ folder, users, onClose, onSave }) {
     }
   }
 
+  const accessCount = members.length
+
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal" style={{ minWidth: 420 }} onClick={(e) => e.stopPropagation()}>
+      <div className="modal" style={{ minWidth: 460 }} onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2 className="modal-title"><IconShieldCheck size={16} style={{ marginRight: 6 }} />Manage Access — {folder.name}</h2>
           <button className="icon-btn" onClick={onClose}><IconX size={16} /></button>
@@ -164,35 +178,74 @@ function PermissionsModal({ folder, users, onClose, onSave }) {
             <div style={{ color: 'var(--muted)', padding: '12px 0' }}>Loading…</div>
           ) : (
             <>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', padding: '10px 0', borderBottom: '1px solid var(--border)', marginBottom: 12 }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', padding: '10px 0', borderBottom: '1px solid var(--border)', marginBottom: 14 }}>
                 <input type="checkbox" checked={isOpen} onChange={e => setIsOpen(e.target.checked)} style={{ width: 16, height: 16 }} />
                 <div>
                   <div style={{ fontWeight: 600, fontSize: 14 }}>Open to all members</div>
-                  <div style={{ fontSize: 12, color: 'var(--muted)' }}>All portal members can view this folder</div>
+                  <div style={{ fontSize: 12, color: 'var(--muted)' }}>Every portal member can browse this folder</div>
                 </div>
               </label>
 
               {!isOpen && (
-                <div>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>
-                    Allowed members
+                <>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      Member Access
+                    </div>
+                    {accessCount > 0 && (
+                      <div style={{ fontSize: 12, color: 'var(--primary)', fontWeight: 600 }}>
+                        {accessCount} {accessCount === 1 ? 'member' : 'members'} with access
+                      </div>
+                    )}
                   </div>
                   {users.length === 0 ? (
                     <div style={{ color: 'var(--muted)', fontSize: 13 }}>No members found</div>
                   ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 240, overflowY: 'auto' }}>
-                      {users.map(u => (
-                        <label key={u.email} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 8px', borderRadius: 6, cursor: 'pointer', background: allowed.includes(u.email) ? 'var(--primary-light, #eaf5d3)' : 'transparent' }}>
-                          <input type="checkbox" checked={allowed.includes(u.email)} onChange={() => toggleUser(u.email)} style={{ width: 14, height: 14, flexShrink: 0 }} />
-                          <div>
-                            <div style={{ fontSize: 13, fontWeight: 500 }}>{u.name || u.email}</div>
-                            <div style={{ fontSize: 11, color: 'var(--muted)' }}>{u.email} · {u.role}</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2, maxHeight: 280, overflowY: 'auto' }}>
+                      {users.map(u => {
+                        const memberRole = getMemberRole(u.email)
+                        const hasAccess = memberRole !== 'none'
+                        return (
+                          <div key={u.email} style={{
+                            display: 'flex', alignItems: 'center', gap: 10,
+                            padding: '8px 10px', borderRadius: 8,
+                            background: hasAccess ? '#f0fdf4' : 'transparent',
+                            border: `1px solid ${hasAccess ? '#bbf7d0' : 'transparent'}`,
+                          }}>
+                            <div style={{
+                              width: 30, height: 30, borderRadius: '50%', flexShrink: 0,
+                              background: '#4f46e5', color: '#fff', display: 'flex',
+                              alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700,
+                            }}>
+                              {(u.name || u.email)?.[0]?.toUpperCase()}
+                            </div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.name || u.email}</div>
+                              <div style={{ fontSize: 11, color: 'var(--muted)' }}>{u.email}</div>
+                            </div>
+                            <select
+                              value={memberRole}
+                              onChange={e => setMemberRole(u.email, e.target.value)}
+                              style={{
+                                border: '1px solid var(--border)', borderRadius: 6, padding: '4px 8px',
+                                fontSize: 12, fontWeight: 600, cursor: 'pointer', flexShrink: 0,
+                                color: ROLE_OPTIONS.find(r => r.value === memberRole)?.color,
+                                background: hasAccess ? '#fff' : 'var(--bg)',
+                              }}
+                            >
+                              {ROLE_OPTIONS.map(r => (
+                                <option key={r.value} value={r.value}>{r.label}</option>
+                              ))}
+                            </select>
                           </div>
-                        </label>
-                      ))}
+                        )
+                      })}
                     </div>
                   )}
-                </div>
+                  <div style={{ marginTop: 10, fontSize: 11, color: 'var(--muted)', padding: '8px 10px', background: 'var(--bg)', borderRadius: 6 }}>
+                    <strong>Viewer</strong> — can browse and download files &nbsp;·&nbsp; <strong>Editor</strong> — can also upload and rename
+                  </div>
+                </>
               )}
             </>
           )}
@@ -256,6 +309,7 @@ function fileIcon(name) {
 // ── Main component ────────────────────────────────────────────────────────────
 export default function WorkDriveFiles({ addToast }) {
   const { user } = useAuth()
+  const location = useLocation()
   const role = user?.role || 'VIEWER'
   const isAdmin = role === 'SUPER_ADMIN' || role === 'ADMIN'
 
@@ -264,7 +318,8 @@ export default function WorkDriveFiles({ addToast }) {
   const [breadcrumb, setBreadcrumb] = useState([])
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(false)
-  const [accessDenied, setAccessDenied] = useState(null) // { folderId, folderName }
+  const [folderRole, setFolderRole] = useState(null) // folder-specific role override
+  const [accessDenied, setAccessDenied] = useState(null)
   const [requestSent, setRequestSent] = useState(false)
   const [requestSending, setRequestSending] = useState(false)
 
@@ -275,19 +330,27 @@ export default function WorkDriveFiles({ addToast }) {
   const [newFolderName, setNewFolderName] = useState('')
 
   // Admin-only state
-  const [permModal, setPermModal] = useState(null) // folder { id, name }
+  const [permModal, setPermModal] = useState(null)
   const [allUsers, setAllUsers] = useState([])
   const [accessRequests, setAccessRequests] = useState([])
 
-  // Load folders on mount
+  // Load folders on mount; open permissions modal if navigated from Dashboard
   useEffect(() => {
     api.workdrive.folders()
       .then((d) => {
         const fols = d.folders || []
         setRootFolders(fols)
-        const targetId = window.history.state?.usr?.folderId
-        const target = targetId ? fols.find((f) => f.id === targetId) : null
-        openRoot(target || fols[0])
+        const { permFolderId, permFolderName } = location.state || {}
+        if (permFolderId) {
+          const target = fols.find(f => f.id === permFolderId) || { id: permFolderId, name: permFolderName || permFolderId }
+          openRoot(target)
+          setPermModal(target)
+          window.history.replaceState({}, '')
+        } else {
+          const targetId = window.history.state?.usr?.folderId
+          const target = targetId ? fols.find((f) => f.id === targetId) : null
+          openRoot(target || fols[0])
+        }
       })
       .catch(() => addToast('Failed to load WorkDrive folders', 'error'))
   }, [])
@@ -312,16 +375,21 @@ export default function WorkDriveFiles({ addToast }) {
     loadFolder(folder.id)
   }
 
-  function loadFolder(folderId) {
+  function loadFolder(folderId, crumbsSnapshot) {
     setLoading(true)
     setAccessDenied(null)
     setRequestSent(false)
+    setFolderRole(null)
     setItems([])
     api.workdrive.files(folderId)
-      .then((d) => setItems(d.items || d.files || []))
+      .then((d) => {
+        setItems(d.items || d.files || [])
+        setFolderRole(d.folder_role || null)
+      })
       .catch((err) => {
         if (err.status === 403) {
-          const folderName = breadcrumb.find(b => b.id === folderId)?.name
+          const crumbs = crumbsSnapshot || breadcrumb
+          const folderName = crumbs.find(b => b.id === folderId)?.name
             || rootFolders.find(f => f.id === folderId)?.name
             || folderId
           setAccessDenied({ folderId, folderName })
@@ -333,21 +401,22 @@ export default function WorkDriveFiles({ addToast }) {
   }
 
   function openSubfolder(item) {
-    setBreadcrumb((prev) => [...prev, { id: item.id, name: item.name }])
-    loadFolder(item.id)
+    const newCrumbs = [...breadcrumb, { id: item.id, name: item.name }]
+    setBreadcrumb(newCrumbs)
+    loadFolder(item.id, newCrumbs)
   }
 
   function navigateBreadcrumb(index) {
-    const crumb = breadcrumb[index]
-    setBreadcrumb(breadcrumb.slice(0, index + 1))
-    loadFolder(crumb.id)
+    const newCrumbs = breadcrumb.slice(0, index + 1)
+    setBreadcrumb(newCrumbs)
+    loadFolder(newCrumbs[newCrumbs.length - 1].id, newCrumbs)
   }
 
   function goUp() {
     if (breadcrumb.length <= 1) return
     const newCrumbs = breadcrumb.slice(0, -1)
     setBreadcrumb(newCrumbs)
-    loadFolder(newCrumbs[newCrumbs.length - 1].id)
+    loadFolder(newCrumbs[newCrumbs.length - 1].id, newCrumbs)
   }
 
   async function handleRequestAccess() {
@@ -437,8 +506,10 @@ export default function WorkDriveFiles({ addToast }) {
   }
 
   const currentFolderId = breadcrumb[breadcrumb.length - 1]?.id
-  const canEdit = can(role, 'upload')
-  const canDelete = role === 'SUPER_ADMIN' || role === 'ADMIN'
+  // folderRole overrides portal role for this specific folder
+  const effectiveEdit = isAdmin || folderRole === 'EDITOR' || (!folderRole && (role === 'EDITOR' || isAdmin))
+  const canEdit = effectiveEdit
+  const canDelete = isAdmin
 
   return (
     <div className="page">

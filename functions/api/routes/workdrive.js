@@ -13,15 +13,30 @@ function zohoError(err) {
   return err.message
 }
 
-async function canAccessFolder(db, folderId, userEmail, userRole) {
-  if (userRole === 'SUPER_ADMIN' || userRole === 'ADMIN') return true
+async function getPermRecord(db, folderId) {
   const rows = await db.zcql().executeZCQLQuery(
     `SELECT * FROM folder_permissions WHERE ROWID = '${folderId}'`
   )
-  const perm = rows?.[0]?.folder_permissions
+  return rows?.[0]?.folder_permissions || null
+}
+
+// Returns true if the user can access the folder
+async function canAccessFolder(db, folderId, userEmail, userRole) {
+  if (userRole === 'SUPER_ADMIN' || userRole === 'ADMIN') return true
+  const perm = await getPermRecord(db, folderId)
   if (!perm || perm.is_open !== false) return true
-  const allowed = (perm.allowed_emails || []).map(e => e.toLowerCase())
-  return allowed.includes(userEmail.toLowerCase())
+  const members = perm.members || []
+  return members.some(m => m.email?.toLowerCase() === userEmail.toLowerCase())
+}
+
+// Returns the user's folder-specific role, or null (= use portal role)
+async function getUserFolderRole(db, folderId, userEmail, userRole) {
+  if (userRole === 'SUPER_ADMIN' || userRole === 'ADMIN') return null
+  const perm = await getPermRecord(db, folderId)
+  if (!perm || perm.is_open !== false) return null
+  const members = perm.members || []
+  const member = members.find(m => m.email?.toLowerCase() === userEmail.toLowerCase())
+  return member?.role || 'VIEWER'
 }
 
 // All team workspaces — visible to everyone
@@ -40,12 +55,14 @@ router.get('/folders', async (req, res) => {
   }
 })
 
-// List files/subfolders — with portal-level permission check
+// List files — permission check + return folder_role for UI action gating
 router.get('/files/:folderId', async (req, res) => {
   const db = getDatastore(req)
   try {
     const allowed = await canAccessFolder(db, req.params.folderId, req.user.email, req.user.role)
     if (!allowed) return res.status(403).json({ error: 'unauthorized', folder_id: req.params.folderId })
+
+    const folderRole = await getUserFolderRole(db, req.params.folderId, req.user.email, req.user.role)
 
     const raw = await listFolderFiles(req.params.folderId)
     const items = raw.map((f) => ({
@@ -60,13 +77,13 @@ router.get('/files/:folderId', async (req, res) => {
       permalink: f.attributes?.permalink || '',
       download_url: f.attributes?.download_url || '',
     }))
-    res.json({ items })
+    res.json({ items, folder_role: folderRole })
   } catch (err) {
     res.status(500).json({ error: zohoError(err) })
   }
 })
 
-// GET /workdrive/permissions — all folder permission records (admin+)
+// GET /workdrive/permissions — all folder permissions (admin+)
 router.get('/permissions', requireRole('SUPER_ADMIN', 'ADMIN'), async (req, res) => {
   try {
     const db = getDatastore(req)
@@ -77,10 +94,11 @@ router.get('/permissions', requireRole('SUPER_ADMIN', 'ADMIN'), async (req, res)
   }
 })
 
-// POST /workdrive/permissions/:folderId — set folder permissions (admin+)
+// POST /workdrive/permissions/:folderId — set folder permissions with per-user roles
 router.post('/permissions/:folderId', requireRole('SUPER_ADMIN', 'ADMIN'), async (req, res) => {
   const { folderId } = req.params
-  const { folder_name, is_open, allowed_emails } = req.body
+  const { folder_name, is_open, members } = req.body
+  // members: [{email, role}] where role is 'VIEWER' or 'EDITOR'
   try {
     const db = getDatastore(req)
     const permData = {
@@ -88,14 +106,15 @@ router.post('/permissions/:folderId', requireRole('SUPER_ADMIN', 'ADMIN'), async
       folder_id: folderId,
       folder_name: folder_name || folderId,
       is_open: is_open !== false,
-      allowed_emails: (allowed_emails || []).map(e => e.toLowerCase()),
+      members: (members || []).map(m => ({
+        email: m.email.toLowerCase(),
+        role: m.role || 'VIEWER',
+      })),
       updated_by: req.user.email,
       updated_at: new Date().toISOString(),
     }
-    const existing = await db.zcql().executeZCQLQuery(
-      `SELECT * FROM folder_permissions WHERE ROWID = '${folderId}'`
-    )
-    if (existing?.[0]) {
+    const existing = await getPermRecord(db, folderId)
+    if (existing) {
       await db.datastore().table('folder_permissions').updateRow({ data: permData })
     } else {
       await db.datastore().table('folder_permissions').insertRow({ data: permData })
@@ -121,7 +140,7 @@ router.get('/access-requests', async (req, res) => {
   }
 })
 
-// POST /workdrive/access-requests — submit access request
+// POST /workdrive/access-requests — submit request
 router.post('/access-requests', async (req, res) => {
   const { folder_id, folder_name } = req.body
   if (!folder_id) return res.status(400).json({ error: 'folder_id required' })
@@ -145,7 +164,6 @@ router.post('/access-requests', async (req, res) => {
         reviewed_at: null,
       }
     })
-
     sendAccessRequestEmail(folder_name, req.user.name, req.user.email).catch(() => {})
     res.json({ success: true, id: row.ROWID })
   } catch (err) {
@@ -153,7 +171,7 @@ router.post('/access-requests', async (req, res) => {
   }
 })
 
-// PATCH /workdrive/access-requests/:id — approve or reject (admin+)
+// PATCH /workdrive/access-requests/:id — approve or reject
 router.patch('/access-requests/:id', requireRole('SUPER_ADMIN', 'ADMIN'), async (req, res) => {
   const { id } = req.params
   const { action } = req.body
@@ -175,17 +193,15 @@ router.patch('/access-requests/:id', requireRole('SUPER_ADMIN', 'ADMIN'), async 
 
     if (action === 'approve') {
       const { folder_id, folder_name, requester_email } = record
-      const permRows = await db.zcql().executeZCQLQuery(
-        `SELECT * FROM folder_permissions WHERE ROWID = '${folder_id}'`
-      )
-      const perm = permRows?.[0]?.folder_permissions
-      const allowed = [...new Set([...(perm?.allowed_emails || []), requester_email.toLowerCase()])]
+      const perm = await getPermRecord(db, folder_id)
+      const existing = (perm?.members || []).filter(m => m.email !== requester_email.toLowerCase())
+      const members = [...existing, { email: requester_email.toLowerCase(), role: 'VIEWER' }]
       const permData = {
         ROWID: folder_id,
         folder_id,
         folder_name,
         is_open: perm?.is_open !== undefined ? perm.is_open : false,
-        allowed_emails: allowed,
+        members,
         updated_by: req.user.email,
         updated_at: new Date().toISOString(),
       }
@@ -197,7 +213,6 @@ router.patch('/access-requests/:id', requireRole('SUPER_ADMIN', 'ADMIN'), async 
       }
       sendAccessGrantedEmail(requester_email, record.requester_name, folder_name).catch(() => {})
     }
-
     res.json({ success: true })
   } catch (err) {
     res.status(500).json({ error: err.message })
@@ -210,7 +225,6 @@ router.delete('/files/:fileId', requireRole('SUPER_ADMIN', 'ADMIN'), async (req,
     await deleteFile(req.params.fileId)
     res.json({ success: true })
   } catch (err) {
-    console.error('[workdrive] delete error:', zohoError(err))
     res.status(500).json({ error: zohoError(err) })
   }
 })
@@ -223,7 +237,6 @@ router.patch('/files/:fileId/rename', requireRole('SUPER_ADMIN', 'ADMIN', 'EDITO
     await renameFile(req.params.fileId, name)
     res.json({ success: true })
   } catch (err) {
-    console.error('[workdrive] rename error:', zohoError(err))
     res.status(500).json({ error: zohoError(err) })
   }
 })
@@ -237,19 +250,16 @@ router.patch('/files/:fileId/move', requireRole('SUPER_ADMIN', 'ADMIN'), async (
     return res.json({ success: true })
   } catch (err) {
     const detail = zohoError(err)
-    console.error('[workdrive] move error:', detail)
     if (detail.includes('R508')) {
       try {
         await copyFile(req.params.fileId, folder_id)
         await deleteFile(req.params.fileId).catch(() => {})
         return res.json({ success: true })
-      } catch (copyErr) {
+      } catch {
         return res.status(500).json({ error: 'Cannot move between workspaces — copy also failed.' })
       }
     }
-    if (detail.includes('R510')) {
-      return res.status(500).json({ error: 'No permission to move this file.' })
-    }
+    if (detail.includes('R510')) return res.status(500).json({ error: 'No permission to move this file.' })
     res.status(500).json({ error: detail })
   }
 })
@@ -273,10 +283,8 @@ router.post('/folders/create', requireRole('SUPER_ADMIN', 'ADMIN'), async (req, 
   try {
     const folder = await createFolder(parent_id, name)
     const id = folder?.id || folder?.attributes?.id || folder?.resource_id || ''
-    const folderName = folder?.attributes?.name || name
-    res.json({ id, name: folderName })
+    res.json({ id, name: folder?.attributes?.name || name })
   } catch (err) {
-    console.error('[workdrive] createFolder error:', zohoError(err))
     res.status(500).json({ error: zohoError(err) })
   }
 })

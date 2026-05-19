@@ -266,6 +266,7 @@ a { text-decoration: none; color: inherit; }
   box-shadow: var(--shadow);
 }
 .cat-card:hover { border-color: var(--primary); transform: translateY(-2px); box-shadow: 0 4px 16px rgba(79,70,229,.12); }
+div:hover > .cat-card-manage-btn { opacity: 1 !important; }
 .cat-card-icon { font-size: 28px; margin-bottom: 8px; }
 .cat-card-name { font-size: 13px; font-weight: 700; color: var(--text); }
 .cat-card-count { font-size: 11px; color: var(--muted); margin-top: 2px; }

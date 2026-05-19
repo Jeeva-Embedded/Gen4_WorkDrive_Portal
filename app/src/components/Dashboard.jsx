@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { IconFiles, IconDownload, IconUsers, IconFolder, IconFile, IconX, IconMail, IconShield } from '@tabler/icons-react'
+import { IconFiles, IconDownload, IconUsers, IconFolder, IconFile, IconX, IconMail, IconShield, IconSettings } from '@tabler/icons-react'
 import { api } from '../utils/api'
 import { useAuth } from '../context/AuthContext'
 import { ROLES } from '../utils/roles'
@@ -94,12 +94,30 @@ export default function Dashboard({ addToast }) {
       {loading ? <div className="loading-state">Loading…</div> : (
         <div className="cat-grid">
           {folders.map((f, i) => (
-            <div key={f.id} className="cat-card" onClick={() => navigate(`/documents/${encodeURIComponent(f.name.toLowerCase().replace(/\s+/g, '-'))}`)}>
-              <div className="cat-card-icon" style={{ color: FOLDER_COLORS[i % FOLDER_COLORS.length] }}>
-                <IconFolder size={26} />
+            <div key={f.id} style={{ position: 'relative' }}>
+              <div className="cat-card" onClick={() => navigate(`/documents/${encodeURIComponent(f.name.toLowerCase().replace(/\s+/g, '-'))}`)}>
+                <div className="cat-card-icon" style={{ color: FOLDER_COLORS[i % FOLDER_COLORS.length] }}>
+                  <IconFolder size={26} />
+                </div>
+                <div className="cat-card-name">{f.name}</div>
+                <div className="cat-card-count">{(parseInt(f.files_count) || 0).toLocaleString()} files</div>
               </div>
-              <div className="cat-card-name">{f.name}</div>
-              <div className="cat-card-count">{(parseInt(f.files_count) || 0).toLocaleString()} files</div>
+              {isAdmin && (
+                <button
+                  title="Manage folder access"
+                  onClick={(e) => { e.stopPropagation(); navigate('/workdrive', { state: { permFolderId: f.id, permFolderName: f.name } }) }}
+                  style={{
+                    position: 'absolute', top: 8, right: 8,
+                    background: 'rgba(255,255,255,0.9)', border: '1px solid var(--border)',
+                    borderRadius: 6, padding: '4px 6px', cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', opacity: 0,
+                    transition: 'opacity .15s', color: 'var(--muted)',
+                  }}
+                  className="cat-card-manage-btn"
+                >
+                  <IconSettings size={14} />
+                </button>
+              )}
             </div>
           ))}
         </div>
