@@ -3,7 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import {
   IconLayoutDashboard, IconFiles, IconUpload,
   IconFolder, IconUsers, IconX, IconLogout,
-  IconTrash, IconChevronDown, IconChevronRight,
+  IconTrash, IconChevronDown, IconChevronRight, IconChartBar,
 } from '@tabler/icons-react'
 import { useAuth } from '../context/AuthContext'
 import { ROLES } from '../utils/roles'
@@ -72,6 +72,12 @@ export default function Sidebar({ open, onClose, addToast }) {
           {(role === ROLES.SUPER_ADMIN || role === ROLES.ADMIN) && (
             <NavLink to="/delete-requests" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
               <IconTrash size={17} /><span>Delete Requests</span>
+            </NavLink>
+          )}
+
+          {(role === ROLES.SUPER_ADMIN || role === ROLES.ADMIN) && (
+            <NavLink to="/reports" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
+              <IconChartBar size={17} /><span>Reports</span>
             </NavLink>
           )}
 

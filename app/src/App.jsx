@@ -12,6 +12,7 @@ import UploadPage from './components/UploadPage'
 import WorkDriveFiles from './components/WorkDriveFiles'
 import UserManagement from './components/UserManagement'
 import DeleteRequests from './components/DeleteRequests'
+import Reports from './components/Reports'
 import { ROLES } from './utils/roles'
 
 function Toast({ toasts, onRemove }) {
@@ -67,6 +68,11 @@ function AppShell() {
             <Route path="/delete-requests" element={
               <ProtectedRoute roles={[ROLES.SUPER_ADMIN, ROLES.ADMIN]}>
                 <DeleteRequests addToast={addToast} />
+              </ProtectedRoute>
+            } />
+            <Route path="/reports" element={
+              <ProtectedRoute roles={[ROLES.SUPER_ADMIN, ROLES.ADMIN]}>
+                <Reports addToast={addToast} />
               </ProtectedRoute>
             } />
           </Routes>

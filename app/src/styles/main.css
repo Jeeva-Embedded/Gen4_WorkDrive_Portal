@@ -494,6 +494,21 @@ a { text-decoration: none; color: inherit; }
 }
 .btn.active { background: var(--primary-light); border-color: var(--primary); color: var(--primary); }
 
+/* ── REPORT FILTER BAR ── */
+.report-filter-bar {
+  display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap;
+  background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+  padding: 16px 20px; margin-bottom: 20px;
+}
+.report-filter-bar .form-group { margin-bottom: 0; min-width: 140px; }
+.report-filter-bar input[type="date"] {
+  padding: 7px 10px; border: 1px solid var(--border); border-radius: 8px;
+  font-size: 13px; background: var(--bg); color: var(--text); width: 100%;
+}
+.select-wrap { position: relative; display: flex; align-items: center; }
+.select-wrap select { padding-right: 28px; appearance: none; -webkit-appearance: none; }
+.select-chevron { position: absolute; right: 8px; pointer-events: none; color: var(--muted); }
+
 /* ── FOLDER PICKER (upload subfolder browser) ── */
 .folder-picker { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
 .folder-picker-workspaces {

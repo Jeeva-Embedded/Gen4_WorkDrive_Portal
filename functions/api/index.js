@@ -9,6 +9,7 @@ const workdriveRoutes     = require('./routes/workdrive')
 const userRoutes          = require('./routes/users')
 const categoryRoutes      = require('./routes/categories')
 const deleteRequestRoutes = require('./routes/delete-requests')
+const reportRoutes        = require('./routes/reports')
 
 const { getDatastore, getWdDownloadTotal } = require('./utils/datastore')
 const { authMiddleware } = require('./middleware/auth')
@@ -44,6 +45,7 @@ app.use('/api/workdrive',      workdriveRoutes)
 app.use('/api/users',          userRoutes)
 app.use('/api/categories',     categoryRoutes)
 app.use('/api/delete-requests', deleteRequestRoutes)
+app.use('/api/reports',        reportRoutes)
 
 app.use((err, req, res, _next) => {
   console.error(err.stack)

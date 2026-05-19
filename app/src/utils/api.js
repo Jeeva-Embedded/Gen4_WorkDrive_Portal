@@ -77,6 +77,13 @@ export const api = {
     get: () => request('/stats'),
   },
 
+  reports: {
+    get: (params = {}) => {
+      const q = new URLSearchParams(params).toString()
+      return request(`/reports${q ? `?${q}` : ''}`)
+    },
+  },
+
   deleteRequests: {
     list: () => request('/delete-requests'),
     review: (id, action) => request(`/delete-requests/${id}`, { method: 'PATCH', body: JSON.stringify({ action }) }),
