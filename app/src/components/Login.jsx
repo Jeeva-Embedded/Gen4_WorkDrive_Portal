@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 
 const CLIENT_ID = import.meta.env.VITE_ZOHO_CLIENT_ID
 const REDIRECT_URI = import.meta.env.VITE_ZOHO_REDIRECT_URI || `${window.location.origin}/auth/callback`
@@ -15,6 +15,25 @@ async function generatePKCE() {
 
 export default function Login() {
   const [loading, setLoading] = useState(false)
+  const [serverWaking, setServerWaking] = useState(false)
+
+  useEffect(() => {
+    let timer
+    let attempts = 0
+
+    function ping() {
+      fetch('/api/health')
+        .then((r) => { if (r.ok) setServerWaking(false) })
+        .catch(() => {
+          attempts++
+          if (attempts === 1) setServerWaking(true)
+          if (attempts < 10) timer = setTimeout(ping, 3000)
+        })
+    }
+
+    timer = setTimeout(ping, 2500)
+    return () => clearTimeout(timer)
+  }, [])
 
   async function handleLogin() {
     setLoading(true)
@@ -37,6 +56,17 @@ export default function Login() {
 
   return (
     <div className="login-page">
+      {serverWaking && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100,
+          background: '#d97706', color: '#fff', padding: '10px 16px',
+          textAlign: 'center', fontSize: 13, fontWeight: 600,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+        }}>
+          <span className="btn-spinner" style={{ borderColor: 'rgba(255,255,255,.4)', borderTopColor: '#fff', width: 14, height: 14 }}></span>
+          Server is waking up — this takes 10–20 seconds on first visit…
+        </div>
+      )}
       <div className="login-bg">
         <div className="login-bg-grid"></div>
         <div className="login-bg-glow"></div>

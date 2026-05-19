@@ -92,4 +92,58 @@ function getDatastore(req) {
   }
 }
 
-module.exports = { getDatastore }
+function seedDb() {
+  const email = (process.env.SUPER_ADMIN_EMAIL || '').toLowerCase().trim()
+  if (!email) return
+  const db = readDb()
+  if (!db.user_roles.some((u) => u.email === email)) {
+    db.user_roles.push({
+      ROWID: Date.now().toString(),
+      email,
+      name: process.env.SUPER_ADMIN_NAME || email.split('@')[0],
+      role: 'SUPER_ADMIN',
+      added_by: 'system',
+      added_date: new Date().toISOString(),
+    })
+    console.log(`[db] Seeded super admin: ${email}`)
+  }
+  const seedJson = process.env.SEED_USERS
+  if (seedJson) {
+    try {
+      const users = JSON.parse(seedJson)
+      for (const u of users) {
+        if (!u.email) continue
+        const ue = u.email.toLowerCase().trim()
+        if (!db.user_roles.some((r) => r.email === ue)) {
+          db.user_roles.push({
+            ROWID: (Date.now() + Math.floor(Math.random() * 9999)).toString(),
+            email: ue,
+            name: u.name || ue.split('@')[0],
+            role: u.role || 'VIEWER',
+            added_by: email,
+            added_date: new Date().toISOString(),
+          })
+          console.log(`[db] Seeded user: ${ue}`)
+        }
+      }
+    } catch (e) {
+      console.error('[db] Failed to parse SEED_USERS:', e.message)
+    }
+  }
+  writeDb(db)
+}
+
+function incrementWdDownload(fileId) {
+  const db = readDb()
+  if (!db.wd_download_counts) db.wd_download_counts = {}
+  db.wd_download_counts[fileId] = (db.wd_download_counts[fileId] || 0) + 1
+  writeDb(db)
+  return db.wd_download_counts[fileId]
+}
+
+function getWdDownloadTotal() {
+  const db = readDb()
+  return Object.values(db.wd_download_counts || {}).reduce((a, v) => a + v, 0)
+}
+
+module.exports = { getDatastore, seedDb, incrementWdDownload, getWdDownloadTotal }

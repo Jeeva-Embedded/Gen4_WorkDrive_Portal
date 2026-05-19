@@ -10,6 +10,9 @@ const userRoutes          = require('./routes/users')
 const categoryRoutes      = require('./routes/categories')
 const deleteRequestRoutes = require('./routes/delete-requests')
 
+const { getDatastore, getWdDownloadTotal } = require('./utils/datastore')
+const { authMiddleware } = require('./middleware/auth')
+
 const app = express()
 
 app.use(cors({
@@ -21,6 +24,18 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' }))
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok', service: 'gen4-workdrive-portal' }))
+
+app.get('/api/stats', authMiddleware, async (req, res) => {
+  try {
+    const db = getDatastore(req)
+    const rows = await db.zcql().executeZCQLQuery('SELECT * FROM documents')
+    const portalDl = (rows || []).reduce((a, r) => a + (parseInt(r.documents?.downloads) || 0), 0)
+    const wdDl = getWdDownloadTotal()
+    res.json({ total_downloads: portalDl + wdDl })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
 
 app.use('/api/auth',           authRoutes)
 app.use('/api/documents',      documentRoutes)

@@ -70,6 +70,11 @@ export const api = {
     renameFile: (fileId, name) => request(`/workdrive/files/${fileId}/rename`, { method: 'PATCH', body: JSON.stringify({ name }) }),
     moveFile: (fileId, folder_id) => request(`/workdrive/files/${fileId}/move`, { method: 'PATCH', body: JSON.stringify({ folder_id }) }),
     createFolder: (parent_id, name) => request('/workdrive/folders/create', { method: 'POST', body: JSON.stringify({ parent_id, name }) }),
+    trackDownload: (file_id) => request('/workdrive/track-download', { method: 'POST', body: JSON.stringify({ file_id }) }).catch(() => {}),
+  },
+
+  stats: {
+    get: () => request('/stats'),
   },
 
   deleteRequests: {

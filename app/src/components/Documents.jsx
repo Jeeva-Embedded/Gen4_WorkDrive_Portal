@@ -320,12 +320,12 @@ export default function Documents({ addToast }) {
                         ) : (
                           <>
                             {f.permalink && (
-                              <button className="btn btn-outline btn-sm" onClick={() => window.open(f.permalink, '_blank')}>
+                              <button className="btn btn-outline btn-sm" onClick={() => { window.open(f.permalink, '_blank'); api.workdrive.trackDownload(f.id) }}>
                                 <IconEye size={14} /> View
                               </button>
                             )}
                             {f.download_url && (
-                              <button className="icon-btn" title="Download" onClick={() => window.open(f.download_url, '_blank')}>
+                              <button className="icon-btn" title="Download" onClick={() => { window.open(f.download_url, '_blank'); api.workdrive.trackDownload(f.id) }}>
                                 <IconDownload size={15} />
                               </button>
                             )}

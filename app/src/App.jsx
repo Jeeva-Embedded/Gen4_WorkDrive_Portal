@@ -40,7 +40,7 @@ function AppShell() {
   const removeToast = useCallback((id) => setToasts((p) => p.filter((t) => t.id !== id)), [])
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell${sidebarOpen ? ' app-shell--sidebar-open' : ''}`}>
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} addToast={addToast} />
       <div className="main-area">
         <Topbar onMenuClick={() => setSidebarOpen((v) => !v)} />

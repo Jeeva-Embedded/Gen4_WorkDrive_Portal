@@ -1,6 +1,7 @@
 const express = require('express')
 const { authMiddleware, requireRole } = require('../middleware/auth')
 const { listFolderFiles, listTeamFolders, deleteFile, renameFile, moveFile, copyFile, createFolder } = require('../utils/zohoApi')
+const { incrementWdDownload } = require('../utils/datastore')
 
 const router = express.Router()
 router.use(authMiddleware)
@@ -102,6 +103,18 @@ router.patch('/files/:fileId/move', requireRole('SUPER_ADMIN', 'ADMIN'), async (
     }
 
     res.status(500).json({ error: detail })
+  }
+})
+
+// POST /workdrive/track-download
+router.post('/track-download', async (req, res) => {
+  const { file_id } = req.body
+  if (!file_id) return res.status(400).json({ error: 'file_id is required' })
+  try {
+    const count = incrementWdDownload(file_id)
+    res.json({ success: true, count })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
   }
 })
 

@@ -50,8 +50,8 @@ export default function Dashboard({ addToast }) {
     Promise.all([
       api.workdrive.folders().catch(() => ({ folders: [] })),
       api.users.list().catch(() => ({ users: [] })),
-      api.documents.list().catch(() => ({ documents: [] })),
-    ]).then(([foldersRes, usersRes, docsRes]) => {
+      api.stats.get().catch(() => null),
+    ]).then(([foldersRes, usersRes, statsRes]) => {
       const fols = foldersRes.folders || []
       setFolders(fols)
       setUsers(usersRes.users || [])
@@ -59,8 +59,7 @@ export default function Dashboard({ addToast }) {
       const total = fols.reduce((a, f) => a + (parseInt(f.files_count) || 0), 0)
       setTotalFiles(total)
 
-      const dlTotal = (docsRes.documents || []).reduce((a, d) => a + (parseInt(d.downloads) || 0), 0)
-      setTotalDownloads(dlTotal)
+      setTotalDownloads(statsRes?.total_downloads ?? 0)
 
       if (fols.length > 0) {
         setFilesLoading(true)
