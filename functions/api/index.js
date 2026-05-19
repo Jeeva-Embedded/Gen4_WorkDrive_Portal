@@ -13,6 +13,7 @@ const reportRoutes        = require('./routes/reports')
 
 const { getDatastore, getWdDownloadTotal } = require('./utils/datastore')
 const { authMiddleware } = require('./middleware/auth')
+const { testSmtp } = require('./utils/mailer')
 
 const app = express()
 
@@ -25,6 +26,21 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' }))
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok', service: 'gen4-workdrive-portal' }))
+
+app.get('/api/test-email', authMiddleware, async (req, res) => {
+  try {
+    const result = await testSmtp()
+    res.json({ success: true, ...result, smtp_user: process.env.SMTP_USER, to: process.env.NOTIFY_EMAILS })
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      error: err.message,
+      smtp_user: process.env.SMTP_USER || '(not set)',
+      smtp_host: process.env.SMTP_HOST || 'smtp.zoho.in',
+      smtp_port: process.env.SMTP_PORT || '465',
+    })
+  }
+})
 
 app.get('/api/stats', authMiddleware, async (req, res) => {
   try {

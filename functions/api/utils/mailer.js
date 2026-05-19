@@ -1,37 +1,50 @@
 const nodemailer = require('nodemailer')
 
-let _transporter = null
-
-function getTransporter() {
-  if (_transporter) return _transporter
-  _transporter = nodemailer.createTransport({
+function makeTransporter() {
+  const port = parseInt(process.env.SMTP_PORT) || 465
+  return nodemailer.createTransport({
     host: process.env.SMTP_HOST || 'smtp.zoho.in',
-    port: parseInt(process.env.SMTP_PORT) || 465,
-    secure: parseInt(process.env.SMTP_PORT) !== 587,
+    port,
+    secure: port !== 587,
     auth: {
       user: process.env.SMTP_USER,
       pass: process.env.SMTP_PASS,
     },
+    tls: { rejectUnauthorized: false },
   })
-  return _transporter
+}
+
+async function testSmtp() {
+  if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+    throw new Error('SMTP_USER or SMTP_PASS not set in environment variables')
+  }
+  const transporter = makeTransporter()
+  await transporter.verify()
+  const info = await transporter.sendMail({
+    from: `"Gen4 Portal" <${process.env.SMTP_USER}>`,
+    to: process.env.NOTIFY_EMAILS || process.env.SMTP_USER,
+    subject: 'Gen4 Portal — SMTP Test',
+    html: '<p>SMTP is working correctly for Gen4 WorkDrive Portal.</p>',
+  })
+  return { messageId: info.messageId, accepted: info.accepted }
 }
 
 async function sendMail(to, subject, htmlContent) {
-  const from = process.env.NOTIFICATION_EMAIL || process.env.SMTP_USER
-  if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
-    console.warn('[mailer] SMTP credentials not set — skipping email')
+  const from = process.env.SMTP_USER
+  if (!from || !process.env.SMTP_PASS) {
+    console.warn('[mailer] SMTP_USER or SMTP_PASS not set — skipping email')
     return
   }
   try {
-    const info = await getTransporter().sendMail({
+    const info = await makeTransporter().sendMail({
       from: `"Gen4 Portal" <${from}>`,
       to: Array.isArray(to) ? to.join(', ') : to,
       subject,
       html: htmlContent,
     })
-    console.log(`[mailer] sent "${subject}" → ${to} (${info.messageId})`)
+    console.log(`[mailer] ✓ sent "${subject}" → ${to} (${info.messageId})`)
   } catch (err) {
-    console.warn('[mailer] SMTP send failed:', err.message)
+    console.error(`[mailer] ✗ SMTP failed for "${subject}": ${err.message}`)
   }
 }
 
@@ -127,4 +140,4 @@ async function sendDeleteReviewedEmail(toEmail, docName, action, reviewedBy) {
   return sendMail(toEmail, subject, html)
 }
 
-module.exports = { sendMemberAddedEmail, sendFileUploadedEmail, sendDeleteRequestEmail, sendDeleteReviewedEmail }
+module.exports = { sendMemberAddedEmail, sendFileUploadedEmail, sendDeleteRequestEmail, sendDeleteReviewedEmail, testSmtp }
