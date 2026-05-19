@@ -14,8 +14,9 @@ function zohoError(err) {
 
 // All team workspaces (shown in left panel)
 router.get('/folders', async (req, res) => {
+  const userToken = req.headers.authorization?.slice(7)
   try {
-    const raw = await listTeamFolders()
+    const raw = await listTeamFolders(userToken)
     const folders = raw.map((f) => ({
       id: f.id,
       name: f.attributes?.name || f.id,
@@ -30,8 +31,9 @@ router.get('/folders', async (req, res) => {
 
 // List files/subfolders inside any folder
 router.get('/files/:folderId', async (req, res) => {
+  const userToken = req.headers.authorization?.slice(7)
   try {
-    const raw = await listFolderFiles(req.params.folderId)
+    const raw = await listFolderFiles(req.params.folderId, userToken)
     const items = raw.map((f) => ({
       id: f.id,
       name: f.attributes?.display_attr_name || f.attributes?.name || f.id,

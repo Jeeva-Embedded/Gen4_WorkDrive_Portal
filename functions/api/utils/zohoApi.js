@@ -36,6 +36,17 @@ async function zoho(method, url, opts = {}) {
   })
 }
 
+// Same as zoho() but uses the logged-in user's own token
+function zohoAs(userToken, method, url, opts = {}) {
+  return axios({
+    method, url, ...opts,
+    headers: {
+      Authorization: `Zoho-oauthtoken ${userToken}`,
+      ...(opts.headers || {}),
+    },
+  })
+}
+
 // Verify a user-supplied access token and get their profile
 async function verifyUserToken(accessToken) {
   const res = await axios.get(`${ACCOUNTS_URL}/oauth/v2/userinfo`, {
@@ -59,8 +70,11 @@ async function exchangeCode(code, codeVerifier, redirectUri) {
   return res.data
 }
 
-async function listFolderFiles(folderId) {
-  const res = await zoho('GET', `${WD_BASE}/files/${folderId}/files`)
+async function listFolderFiles(folderId, userToken) {
+  const call = userToken
+    ? zohoAs(userToken, 'GET', `${WD_BASE}/files/${folderId}/files`)
+    : zoho('GET', `${WD_BASE}/files/${folderId}/files`)
+  const res = await call
   return res.data?.data || []
 }
 
@@ -130,9 +144,12 @@ async function getFileInfo(fileId) {
   return res.data?.data
 }
 
-async function listTeamFolders() {
+async function listTeamFolders(userToken) {
   const teamId = process.env.ZOHO_WORKDRIVE_TEAM_ID
-  const res = await zoho('GET', `${WD_BASE}/teams/${teamId}/workspaces`)
+  const call = userToken
+    ? zohoAs(userToken, 'GET', `${WD_BASE}/teams/${teamId}/workspaces`)
+    : zoho('GET', `${WD_BASE}/teams/${teamId}/workspaces`)
+  const res = await call
   return res.data?.data || []
 }
 
