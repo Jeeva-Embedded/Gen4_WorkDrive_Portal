@@ -223,7 +223,7 @@ a { text-decoration: none; color: inherit; }
 }
 
 /* ── PAGE ── */
-.page { max-width: 1200px; }
+.page { width: 100%; }
 .page-title { font-size: 26px; font-weight: 800; color: var(--text); margin-bottom: 20px; }
 .page-header {
   display: flex; align-items: center; justify-content: space-between;

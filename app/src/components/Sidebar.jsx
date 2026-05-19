@@ -14,6 +14,7 @@ export default function Sidebar({ open, onClose, addToast }) {
   const navigate = useNavigate()
   const [folders, setFolders] = useState([])
   const [foldersOpen, setFoldersOpen] = useState(true)
+  const [confirmLogout, setConfirmLogout] = useState(false)
   const role = user?.role || ROLES.VIEWER
 
   useEffect(() => {
@@ -117,11 +118,30 @@ export default function Sidebar({ open, onClose, addToast }) {
               <div className="user-role">{user?.role || 'Viewer'}</div>
             </div>
           </div>
-          <button className="icon-btn" title="Logout" onClick={handleLogout}>
+          <button className="icon-btn" title="Sign out" onClick={() => setConfirmLogout(true)}>
             <IconLogout size={16} />
           </button>
         </div>
       </aside>
+
+      {confirmLogout && (
+        <div className="modal-backdrop" style={{ zIndex: 200 }} onClick={() => setConfirmLogout(false)}>
+          <div className="modal" style={{ maxWidth: 360 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 className="modal-title">Sign out</h2>
+            </div>
+            <div className="modal-body">
+              <p style={{ color: 'var(--muted)', fontSize: 14 }}>Are you sure you want to sign out?</p>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-outline" onClick={() => setConfirmLogout(false)}>Cancel</button>
+              <button className="btn btn-primary" style={{ background: '#c0392b', borderColor: '#c0392b' }} onClick={handleLogout}>
+                <IconLogout size={14} /> Sign out
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   )
 }
