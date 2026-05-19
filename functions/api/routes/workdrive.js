@@ -2,7 +2,7 @@ const express = require('express')
 const { authMiddleware, requireRole } = require('../middleware/auth')
 const { listFolderFiles, listTeamFolders, deleteFile, renameFile, moveFile, copyFile, createFolder } = require('../utils/zohoApi')
 const { incrementWdDownload, getDatastore } = require('../utils/datastore')
-const { sendAccessRequestEmail, sendAccessGrantedEmail } = require('../utils/mailer')
+const { sendAccessRequestEmail, sendAccessGrantedEmail, sendWdDeleteRequestEmail } = require('../utils/mailer')
 
 const router = express.Router()
 router.use(authMiddleware)
@@ -219,13 +219,83 @@ router.patch('/access-requests/:id', requireRole('SUPER_ADMIN', 'ADMIN'), async 
   }
 })
 
-// DELETE /workdrive/files/:fileId
-router.delete('/files/:fileId', requireRole('SUPER_ADMIN', 'ADMIN'), async (req, res) => {
+// DELETE /workdrive/files/:fileId — SUPER_ADMIN direct delete only
+router.delete('/files/:fileId', requireRole('SUPER_ADMIN'), async (req, res) => {
   try {
     await deleteFile(req.params.fileId)
     res.json({ success: true })
   } catch (err) {
     res.status(500).json({ error: zohoError(err) })
+  }
+})
+
+// POST /workdrive/delete-requests — ADMIN/EDITOR request deletion
+router.post('/delete-requests', requireRole('SUPER_ADMIN', 'ADMIN', 'EDITOR'), async (req, res) => {
+  const { file_id, file_name, folder_name } = req.body
+  if (!file_id || !file_name) return res.status(400).json({ error: 'file_id and file_name required' })
+  try {
+    const db = getDatastore(req)
+    const row = await db.datastore().table('wd_delete_requests').insertRow({
+      data: {
+        file_id,
+        file_name,
+        folder_name: folder_name || '',
+        requested_by_email: req.user.email,
+        requested_by_name: req.user.name,
+        status: 'pending',
+        requested_at: new Date().toISOString(),
+        reviewed_by: null,
+        reviewed_at: null,
+      }
+    })
+    sendWdDeleteRequestEmail(file_name, req.user.name, req.user.email).catch(() => {})
+    res.json({ success: true, id: row.ROWID })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// GET /workdrive/delete-requests
+router.get('/delete-requests', async (req, res) => {
+  try {
+    const db = getDatastore(req)
+    const rows = await db.zcql().executeZCQLQuery('SELECT * FROM wd_delete_requests')
+    let reqs = rows.map(r => r.wd_delete_requests)
+    if (req.user.role !== 'SUPER_ADMIN' && req.user.role !== 'ADMIN') {
+      reqs = reqs.filter(r => r.requested_by_email === req.user.email)
+    }
+    res.json({ requests: reqs })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// PATCH /workdrive/delete-requests/:id — approve or reject (SUPER_ADMIN only)
+router.patch('/delete-requests/:id', requireRole('SUPER_ADMIN'), async (req, res) => {
+  const { id } = req.params
+  const { action } = req.body
+  if (!['approve', 'reject'].includes(action)) return res.status(400).json({ error: 'action must be approve or reject' })
+  try {
+    const db = getDatastore(req)
+    const rows = await db.zcql().executeZCQLQuery(`SELECT * FROM wd_delete_requests WHERE ROWID = '${id}'`)
+    const record = rows?.[0]?.wd_delete_requests
+    if (!record) return res.status(404).json({ error: 'Request not found' })
+
+    if (action === 'approve') {
+      await deleteFile(record.file_id)
+    }
+
+    await db.datastore().table('wd_delete_requests').updateRow({
+      data: {
+        ROWID: id,
+        status: action === 'approve' ? 'approved' : 'rejected',
+        reviewed_by: req.user.email,
+        reviewed_at: new Date().toISOString(),
+      }
+    })
+    res.json({ success: true })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
   }
 })
 

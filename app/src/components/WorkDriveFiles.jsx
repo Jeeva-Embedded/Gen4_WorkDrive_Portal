@@ -299,6 +299,47 @@ function AccessRequestsPanel({ requests, onReview }) {
   )
 }
 
+// ── WD Delete Requests Panel (SUPER_ADMIN) ────────────────────────────────────
+function WdDeleteRequestsPanel({ requests, onReview }) {
+  const [expanded, setExpanded] = useState(false)
+  const pending = requests.filter(r => r.status === 'pending')
+  if (pending.length === 0) return null
+
+  return (
+    <div style={{ background: '#fff1f0', border: '1px solid #fca5a5', borderRadius: 8, padding: '10px 14px', marginBottom: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }} onClick={() => setExpanded(p => !p)}>
+        <IconTrash size={16} style={{ color: '#c0392b' }} />
+        <span style={{ fontWeight: 600, fontSize: 13 }}>{pending.length} pending file deletion {pending.length === 1 ? 'request' : 'requests'}</span>
+        <IconChevronRight size={14} style={{ marginLeft: 'auto', transform: expanded ? 'rotate(90deg)' : '', transition: 'transform 0.2s', color: 'var(--muted)' }} />
+      </div>
+      {expanded && (
+        <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {pending.map(r => (
+            <div key={r.ROWID} style={{ background: '#fff', border: '1px solid #fca5a5', borderRadius: 6, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <div style={{ flex: 1, minWidth: 200 }}>
+                <div style={{ fontWeight: 600, fontSize: 13 }}>{r.file_name}</div>
+                <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+                  Requested by <strong>{r.requested_by_name || r.requested_by_email}</strong>
+                  {r.folder_name && <> in <strong>{r.folder_name}</strong></>}
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--muted)' }}>{new Date(r.requested_at).toLocaleString()}</div>
+              </div>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button className="btn btn-primary btn-sm" style={{ background: '#c0392b', borderColor: '#c0392b' }} onClick={() => onReview(r.ROWID, 'approve')}>
+                  <IconTrash size={13} /> Approve & Delete
+                </button>
+                <button className="btn btn-outline btn-sm" onClick={() => onReview(r.ROWID, 'reject')}>
+                  <IconX size={13} /> Reject
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── File icon helper ──────────────────────────────────────────────────────────
 const FILE_ICONS = { pdf: '📄', docx: '📝', doc: '📝', xlsx: '📊', xls: '📊', ods: '📊', png: '🖼️', jpg: '🖼️', jpeg: '🖼️', zip: '🗜️', rar: '🗜️' }
 function fileIcon(name) {
@@ -333,6 +374,7 @@ export default function WorkDriveFiles({ addToast }) {
   const [permModal, setPermModal] = useState(null)
   const [allUsers, setAllUsers] = useState([])
   const [accessRequests, setAccessRequests] = useState([])
+  const [deleteRequests, setDeleteRequests] = useState([])
 
   // Load folders on mount; open permissions modal if navigated from Dashboard
   useEffect(() => {
@@ -360,12 +402,15 @@ export default function WorkDriveFiles({ addToast }) {
     if (!isAdmin) return
     api.users.list().then(d => setAllUsers(d.users || d || [])).catch(() => {})
     loadAccessRequests()
+    loadDeleteRequests()
   }, [isAdmin])
 
   function loadAccessRequests() {
-    api.workdrive.accessRequests()
-      .then(d => setAccessRequests(d.requests || []))
-      .catch(() => {})
+    api.workdrive.accessRequests().then(d => setAccessRequests(d.requests || [])).catch(() => {})
+  }
+
+  function loadDeleteRequests() {
+    api.workdrive.deleteRequests().then(d => setDeleteRequests(d.requests || [])).catch(() => {})
   }
 
   function openRoot(folder) {
@@ -448,14 +493,39 @@ export default function WorkDriveFiles({ addToast }) {
     }
   }
 
+  // SUPER_ADMIN: direct delete
   async function handleDelete(item) {
-    if (!confirm(`Delete "${item.name}"? This cannot be undone.`)) return
+    if (!confirm(`Permanently delete "${item.name}"? This cannot be undone.`)) return
     try {
       await api.workdrive.deleteFile(item.id)
       setItems((p) => p.filter((f) => f.id !== item.id))
       addToast('Deleted from WorkDrive', 'success')
     } catch {
       addToast('Delete failed', 'error')
+    }
+  }
+
+  // ADMIN / EDITOR: submit delete request
+  async function handleRequestDelete(item) {
+    if (!confirm(`Submit a delete request for "${item.name}"?\nA Super Admin will review and approve before it's deleted.`)) return
+    try {
+      const folderName = breadcrumb[0]?.name || ''
+      await api.workdrive.requestDelete({ file_id: item.id, file_name: item.name, folder_name: folderName })
+      addToast('Delete request submitted — waiting for Super Admin approval', 'success')
+    } catch (err) {
+      addToast(err.message || 'Failed to submit request', 'error')
+    }
+  }
+
+  // SUPER_ADMIN: approve / reject delete requests
+  async function handleReviewDeleteRequest(id, action) {
+    try {
+      await api.workdrive.reviewDeleteRequest(id, action)
+      addToast(action === 'approve' ? 'File deleted' : 'Request rejected', 'success')
+      loadDeleteRequests()
+      if (action === 'approve') loadFolder(currentFolderId)
+    } catch (err) {
+      addToast(err.message || 'Action failed', 'error')
     }
   }
 
@@ -506,17 +576,17 @@ export default function WorkDriveFiles({ addToast }) {
   }
 
   const currentFolderId = breadcrumb[breadcrumb.length - 1]?.id
-  // folderRole overrides portal role for this specific folder
-  const effectiveEdit = isAdmin || folderRole === 'EDITOR' || (!folderRole && (role === 'EDITOR' || isAdmin))
-  const canEdit = effectiveEdit
-  const canDelete = isAdmin
+  const effectiveRole = folderRole || role
+  const canEdit = isAdmin || effectiveRole === 'EDITOR'
+  const canDirectDelete = role === 'SUPER_ADMIN'
+  const canRequestDelete = !canDirectDelete && (role === 'ADMIN' || effectiveRole === 'EDITOR')
 
   return (
     <div className="page">
       <div className="page-header">
         <h1 className="page-title">WorkDrive Files</h1>
         <div style={{ display: 'flex', gap: 8 }}>
-          {canDelete && currentFolderId && !accessDenied && (
+          {canDirectDelete && currentFolderId && !accessDenied && (
             <button className="btn btn-primary btn-sm" onClick={() => { setShowNewFolder(true); setNewFolderName('') }}>
               + New Folder
             </button>
@@ -527,9 +597,14 @@ export default function WorkDriveFiles({ addToast }) {
         </div>
       </div>
 
-      {/* Admin: pending access requests banner */}
+      {/* Pending access requests banner */}
       {isAdmin && accessRequests.length > 0 && (
         <AccessRequestsPanel requests={accessRequests} onReview={handleReviewRequest} />
+      )}
+
+      {/* Pending WD delete requests banner — SUPER_ADMIN only */}
+      {role === 'SUPER_ADMIN' && deleteRequests.filter(r => r.status === 'pending').length > 0 && (
+        <WdDeleteRequestsPanel requests={deleteRequests} onReview={handleReviewDeleteRequest} />
       )}
 
       <div className="workdrive-layout">
@@ -662,12 +737,17 @@ export default function WorkDriveFiles({ addToast }) {
                             <IconPencil size={15} />
                           </button>
                         )}
-                        {canDelete && !item.is_folder && (
+                        {canDirectDelete && !item.is_folder && (
                           <button className="icon-btn danger" title="Delete" onClick={() => handleDelete(item)}>
                             <IconTrash size={15} />
                           </button>
                         )}
-                        {canDelete && (
+                        {canRequestDelete && !item.is_folder && (
+                          <button className="icon-btn" title="Request deletion" style={{ color: '#c0392b' }} onClick={() => handleRequestDelete(item)}>
+                            <IconTrash size={15} />
+                          </button>
+                        )}
+                        {canDirectDelete && (
                           <button className="icon-btn" title="Move" onClick={() => setMoveItem(item)}>
                             <IconArrowsMove size={15} />
                           </button>

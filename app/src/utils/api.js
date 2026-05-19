@@ -81,6 +81,9 @@ export const api = {
     accessRequests: () => request('/workdrive/access-requests'),
     requestAccess: (data) => request('/workdrive/access-requests', { method: 'POST', body: JSON.stringify(data) }),
     reviewAccessRequest: (id, action) => request(`/workdrive/access-requests/${id}`, { method: 'PATCH', body: JSON.stringify({ action }) }),
+    deleteRequests: () => request('/workdrive/delete-requests'),
+    requestDelete: (data) => request('/workdrive/delete-requests', { method: 'POST', body: JSON.stringify(data) }),
+    reviewDeleteRequest: (id, action) => request(`/workdrive/delete-requests/${id}`, { method: 'PATCH', body: JSON.stringify({ action }) }),
   },
 
   stats: {
