@@ -36,7 +36,7 @@ export default function AuthCallback() {
 
   return (
     <div className="splash-screen">
-      <div className="splash-logo">G4</div>
+      <img src="/logo.jpg" alt="Gen4" className="splash-logo" />
       <div className="splash-text">Signing you in…</div>
       <div className="splash-spinner"></div>
     </div>
