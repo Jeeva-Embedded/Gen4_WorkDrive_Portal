@@ -45,8 +45,8 @@ async function testSmtp() {
     to: [{ email: to }],
     subject: 'Gen4 Portal — Email Test ✅',
     htmlContent: `<div style="font-family:sans-serif;max-width:480px;margin:0 auto">
-      <div style="background:#1a5276;padding:20px;border-radius:10px 10px 0 0;text-align:center">
-        <div style="color:#fff;font-size:22px;font-weight:800">G4</div>
+      <div style="background:#1a5276;padding:16px 20px 12px;border-radius:10px 10px 0 0;text-align:center">
+        <img src="${process.env.FRONTEND_URL || 'https://gen4-workdrive-portal.onrender.com'}/logo.jpg" alt="Gen4" style="height:44px;max-width:160px;object-fit:contain;display:block;margin:0 auto 6px" />
         <div style="color:#a9d46e;font-size:13px">Gen4 Manufacturing WorkDrive Portal</div>
       </div>
       <div style="background:#fff;padding:20px;border:1px solid #dde3ea;border-radius:0 0 10px 10px">
@@ -66,9 +66,9 @@ async function sendMemberAddedEmail(email, name, role, addedBy) {
   const portalUrl = process.env.FRONTEND_URL || 'https://gen4-workdrive-portal.onrender.com'
   return sendMail(email, 'You have been added to Gen4 WorkDrive Portal', `
     <div style="font-family:Inter,sans-serif;max-width:480px;margin:0 auto">
-      <div style="background:#1a5276;padding:24px;border-radius:12px 12px 0 0;text-align:center">
-        <div style="color:#fff;font-size:24px;font-weight:800">G4</div>
-        <div style="color:#a9d46e;font-size:14px">Gen4 Manufacturing WorkDrive Portal</div>
+      <div style="background:#1a5276;padding:16px 24px 12px;border-radius:12px 12px 0 0;text-align:center">
+        <img src="${process.env.FRONTEND_URL || 'https://gen4-workdrive-portal.onrender.com'}/logo.jpg" alt="Gen4" style="height:44px;max-width:160px;object-fit:contain;display:block;margin:0 auto 6px" />
+        <div style="color:#a9d46e;font-size:13px">Gen4 Manufacturing WorkDrive Portal</div>
       </div>
       <div style="background:#fff;padding:24px;border:1px solid #dde3ea;border-radius:0 0 12px 12px">
         <h2 style="color:#1a2733">Welcome, ${name || email}!</h2>
@@ -85,9 +85,9 @@ async function sendFileUploadedEmail(fileName, category, uploaderName, uploaderE
   const portalUrl = process.env.FRONTEND_URL || 'https://gen4-workdrive-portal.onrender.com'
   return sendMail(adminEmails, `New file uploaded: ${fileName}`, `
     <div style="font-family:Inter,sans-serif;max-width:480px;margin:0 auto">
-      <div style="background:#1a5276;padding:24px;border-radius:12px 12px 0 0;text-align:center">
-        <div style="color:#fff;font-size:24px;font-weight:800">G4</div>
-        <div style="color:#a9d46e;font-size:14px">Gen4 Manufacturing WorkDrive Portal</div>
+      <div style="background:#1a5276;padding:16px 24px 12px;border-radius:12px 12px 0 0;text-align:center">
+        <img src="${process.env.FRONTEND_URL || 'https://gen4-workdrive-portal.onrender.com'}/logo.jpg" alt="Gen4" style="height:44px;max-width:160px;object-fit:contain;display:block;margin:0 auto 6px" />
+        <div style="color:#a9d46e;font-size:13px">Gen4 Manufacturing WorkDrive Portal</div>
       </div>
       <div style="background:#fff;padding:24px;border:1px solid #dde3ea;border-radius:0 0 12px 12px">
         <h2 style="color:#1a2733">New File Uploaded</h2>
@@ -108,9 +108,9 @@ async function sendDeleteRequestEmail(docName, requestedByName, requestedByEmail
   const portalUrl = process.env.FRONTEND_URL || 'https://gen4-workdrive-portal.onrender.com'
   return sendMail(adminEmails, `Delete Request: "${docName}"`, `
     <div style="font-family:Inter,sans-serif;max-width:480px;margin:0 auto">
-      <div style="background:#1a5276;padding:24px;border-radius:12px 12px 0 0;text-align:center">
-        <div style="color:#fff;font-size:24px;font-weight:800">G4</div>
-        <div style="color:#a9d46e;font-size:14px">Gen4 Manufacturing WorkDrive Portal</div>
+      <div style="background:#1a5276;padding:16px 24px 12px;border-radius:12px 12px 0 0;text-align:center">
+        <img src="${process.env.FRONTEND_URL || 'https://gen4-workdrive-portal.onrender.com'}/logo.jpg" alt="Gen4" style="height:44px;max-width:160px;object-fit:contain;display:block;margin:0 auto 6px" />
+        <div style="color:#a9d46e;font-size:13px">Gen4 Manufacturing WorkDrive Portal</div>
       </div>
       <div style="background:#fff;padding:24px;border:1px solid #dde3ea;border-radius:0 0 12px 12px">
         <h2 style="color:#c0392b">⚠ Delete Request Submitted</h2>
@@ -129,9 +129,9 @@ async function sendDeleteReviewedEmail(toEmail, docName, action, reviewedBy) {
   const portalUrl = process.env.FRONTEND_URL || 'https://gen4-workdrive-portal.onrender.com'
   return sendMail(toEmail, `Delete Request ${approved ? 'Approved' : 'Rejected'}: "${docName}"`, `
     <div style="font-family:Inter,sans-serif;max-width:480px;margin:0 auto">
-      <div style="background:#1a5276;padding:24px;border-radius:12px 12px 0 0;text-align:center">
-        <div style="color:#fff;font-size:24px;font-weight:800">G4</div>
-        <div style="color:#a9d46e;font-size:14px">Gen4 Manufacturing WorkDrive Portal</div>
+      <div style="background:#1a5276;padding:16px 24px 12px;border-radius:12px 12px 0 0;text-align:center">
+        <img src="${process.env.FRONTEND_URL || 'https://gen4-workdrive-portal.onrender.com'}/logo.jpg" alt="Gen4" style="height:44px;max-width:160px;object-fit:contain;display:block;margin:0 auto 6px" />
+        <div style="color:#a9d46e;font-size:13px">Gen4 Manufacturing WorkDrive Portal</div>
       </div>
       <div style="background:#fff;padding:24px;border:1px solid #dde3ea;border-radius:0 0 12px 12px">
         <h2 style="color:${approved ? '#15803d' : '#c0392b'}">${approved ? '✅ Delete Approved' : '❌ Delete Rejected'}</h2>
@@ -152,9 +152,9 @@ async function sendAccessRequestEmail(folderName, requesterName, requesterEmail)
   const portalUrl = process.env.FRONTEND_URL || 'https://gen4-workdrive-portal.onrender.com'
   return sendMail(adminEmails, `Access Request: "${folderName}"`, `
     <div style="font-family:Inter,sans-serif;max-width:480px;margin:0 auto">
-      <div style="background:#1a5276;padding:24px;border-radius:12px 12px 0 0;text-align:center">
-        <div style="color:#fff;font-size:24px;font-weight:800">G4</div>
-        <div style="color:#a9d46e;font-size:14px">Gen4 Manufacturing WorkDrive Portal</div>
+      <div style="background:#1a5276;padding:16px 24px 12px;border-radius:12px 12px 0 0;text-align:center">
+        <img src="${process.env.FRONTEND_URL || 'https://gen4-workdrive-portal.onrender.com'}/logo.jpg" alt="Gen4" style="height:44px;max-width:160px;object-fit:contain;display:block;margin:0 auto 6px" />
+        <div style="color:#a9d46e;font-size:13px">Gen4 Manufacturing WorkDrive Portal</div>
       </div>
       <div style="background:#fff;padding:24px;border:1px solid #dde3ea;border-radius:0 0 12px 12px">
         <h2 style="color:#1a5276">🔒 Folder Access Request</h2>
@@ -172,9 +172,9 @@ async function sendAccessGrantedEmail(toEmail, toName, folderName) {
   const portalUrl = process.env.FRONTEND_URL || 'https://gen4-workdrive-portal.onrender.com'
   return sendMail(toEmail, `Access Granted: "${folderName}"`, `
     <div style="font-family:Inter,sans-serif;max-width:480px;margin:0 auto">
-      <div style="background:#1a5276;padding:24px;border-radius:12px 12px 0 0;text-align:center">
-        <div style="color:#fff;font-size:24px;font-weight:800">G4</div>
-        <div style="color:#a9d46e;font-size:14px">Gen4 Manufacturing WorkDrive Portal</div>
+      <div style="background:#1a5276;padding:16px 24px 12px;border-radius:12px 12px 0 0;text-align:center">
+        <img src="${process.env.FRONTEND_URL || 'https://gen4-workdrive-portal.onrender.com'}/logo.jpg" alt="Gen4" style="height:44px;max-width:160px;object-fit:contain;display:block;margin:0 auto 6px" />
+        <div style="color:#a9d46e;font-size:13px">Gen4 Manufacturing WorkDrive Portal</div>
       </div>
       <div style="background:#fff;padding:24px;border:1px solid #dde3ea;border-radius:0 0 12px 12px">
         <h2 style="color:#15803d">✅ Access Granted</h2>
@@ -191,9 +191,9 @@ async function sendWdDeleteRequestEmail(fileName, requesterName, requesterEmail)
   const portalUrl = process.env.FRONTEND_URL || 'https://gen4-workdrive-portal.onrender.com'
   return sendMail(adminEmails, `WorkDrive Delete Request: "${fileName}"`, `
     <div style="font-family:Inter,sans-serif;max-width:480px;margin:0 auto">
-      <div style="background:#1a5276;padding:24px;border-radius:12px 12px 0 0;text-align:center">
-        <div style="color:#fff;font-size:24px;font-weight:800">G4</div>
-        <div style="color:#a9d46e;font-size:14px">Gen4 Manufacturing WorkDrive Portal</div>
+      <div style="background:#1a5276;padding:16px 24px 12px;border-radius:12px 12px 0 0;text-align:center">
+        <img src="${process.env.FRONTEND_URL || 'https://gen4-workdrive-portal.onrender.com'}/logo.jpg" alt="Gen4" style="height:44px;max-width:160px;object-fit:contain;display:block;margin:0 auto 6px" />
+        <div style="color:#a9d46e;font-size:13px">Gen4 Manufacturing WorkDrive Portal</div>
       </div>
       <div style="background:#fff;padding:24px;border:1px solid #dde3ea;border-radius:0 0 12px 12px">
         <h2 style="color:#c0392b">🗑 WorkDrive Delete Request</h2>

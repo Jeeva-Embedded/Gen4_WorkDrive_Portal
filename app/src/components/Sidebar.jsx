@@ -34,7 +34,7 @@ export default function Sidebar({ open, onClose, addToast }) {
       <aside className={`sidebar ${open ? 'sidebar-open' : ''}`}>
         <div className="sidebar-header">
           <div className="sidebar-brand">
-            <div className="sidebar-logo">G4</div>
+            <div className="sidebar-logo"><img src="/logo.jpg" alt="Gen4" style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 2 }} /></div>
             <div>
               <div className="sidebar-name">Gen4 <span>Manufacturing</span></div>
               <div className="sidebar-tag">Embracing Industry 4.0</div>

@@ -91,7 +91,7 @@ export default function App() {
   if (loading) {
     return (
       <div className="splash-screen">
-        <div className="splash-logo">G4</div>
+        <img src="/logo.jpg" alt="Gen4" className="splash-logo" />
         <div className="splash-text">Gen4 WorkDrive Portal</div>
         <div className="splash-spinner"></div>
       </div>

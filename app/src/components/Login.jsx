@@ -74,7 +74,7 @@ export default function Login() {
 
       <div className="login-card">
         <div className="login-logo">
-          <div className="login-logo-mark">G4</div>
+          <div className="login-logo-mark"><img src="/logo.jpg" alt="Gen4" style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 4 }} /></div>
           <div className="login-logo-text">
             <div className="login-brand">Gen4 <span>Manufacturing</span></div>
             <div className="login-tagline">Embracing Industry 4.0</div>
