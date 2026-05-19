@@ -2,6 +2,7 @@ const express = require('express')
 const { authMiddleware, requireRole } = require('../middleware/auth')
 const { deleteFile } = require('../utils/zohoApi')
 const { getDatastore } = require('../utils/datastore')
+const { sendDeleteReviewedEmail } = require('../utils/mailer')
 
 const router = express.Router()
 router.use(authMiddleware)
@@ -48,6 +49,7 @@ router.patch('/:id', requireRole('SUPER_ADMIN', 'ADMIN'), async (req, res) => {
       }
     }
 
+    sendDeleteReviewedEmail(request.requested_by, request.doc_name, action, req.user.name).catch(() => {})
     res.json({ success: true })
   } catch (err) {
     res.status(500).json({ error: err.message })

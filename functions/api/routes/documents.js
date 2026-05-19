@@ -2,6 +2,7 @@ const express = require('express')
 const { authMiddleware, requireRole } = require('../middleware/auth')
 const { deleteFile } = require('../utils/zohoApi')
 const { getDatastore } = require('../utils/datastore')
+const { sendDeleteRequestEmail } = require('../utils/mailer')
 
 const router = express.Router()
 router.use(authMiddleware)
@@ -92,6 +93,7 @@ router.delete('/:id', async (req, res) => {
           created_at: new Date().toISOString(),
         },
       })
+      sendDeleteRequestEmail(doc.name, req.user.name, req.user.email).catch(() => {})
       return res.json({ success: true, pending: true, message: 'Delete request submitted for admin approval' })
     } catch (err) {
       return res.status(500).json({ error: err.message })
