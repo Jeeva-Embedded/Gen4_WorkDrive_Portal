@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { IconRefresh, IconLock, IconTrash, IconClock, IconCheck, IconX } from '@tabler/icons-react'
 import { api } from '../utils/api'
+import { useAuth } from '../context/AuthContext'
 
 const STATUS_STYLE = {
   pending:  { label: 'Pending',  color: '#b45309', bg: '#fffbeb' },
@@ -25,6 +26,9 @@ function StatusBadge({ status }) {
 }
 
 export default function MyRequests({ addToast }) {
+  const { user } = useAuth()
+  const myEmail = user?.email?.toLowerCase()
+
   const [accessReqs, setAccessReqs] = useState([])
   const [deleteReqs, setDeleteReqs] = useState([])
   const [loading, setLoading] = useState(false)
@@ -35,8 +39,8 @@ export default function MyRequests({ addToast }) {
       api.workdrive.accessRequests().catch(() => ({ requests: [] })),
       api.workdrive.deleteRequests().catch(() => ({ requests: [] })),
     ]).then(([ar, dr]) => {
-      setAccessReqs(ar.requests || [])
-      setDeleteReqs(dr.requests || [])
+      setAccessReqs((ar.requests || []).filter(r => r.requester_email?.toLowerCase() === myEmail))
+      setDeleteReqs((dr.requests || []).filter(r => r.requested_by_email?.toLowerCase() === myEmail))
     }).finally(() => setLoading(false))
   }
 
