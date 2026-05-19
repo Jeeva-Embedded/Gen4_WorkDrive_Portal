@@ -111,7 +111,7 @@ router.post('/track-download', async (req, res) => {
   const { file_id } = req.body
   if (!file_id) return res.status(400).json({ error: 'file_id is required' })
   try {
-    const count = incrementWdDownload(file_id)
+    const count = await incrementWdDownload(file_id)
     res.json({ success: true, count })
   } catch (err) {
     res.status(500).json({ error: err.message })

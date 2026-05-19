@@ -31,7 +31,7 @@ app.get('/api/stats', authMiddleware, async (req, res) => {
     const db = getDatastore(req)
     const rows = await db.zcql().executeZCQLQuery('SELECT * FROM documents')
     const portalDl = (rows || []).reduce((a, r) => a + (parseInt(r.documents?.downloads) || 0), 0)
-    const wdDl = getWdDownloadTotal()
+    const wdDl = await getWdDownloadTotal()
     res.json({ total_downloads: portalDl + wdDl })
   } catch (err) {
     res.status(500).json({ error: err.message })

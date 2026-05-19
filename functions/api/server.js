@@ -1,8 +1,14 @@
-// Load .env from project root (works locally; on Render env vars are injected directly)
 require('dotenv').config({ path: require('path').join(__dirname, '../../.env') })
-const { seedDb } = require('./utils/datastore')
-seedDb()
+
+const { initDb, seedDb } = require('./utils/datastore')
 const app = require('./index')
 
 const PORT = process.env.PORT || 3001
-app.listen(PORT, () => console.log(`API running on http://localhost:${PORT}`))
+
+// Init DB schema then seed, then start server
+initDb()
+  .then(() => seedDb())
+  .catch(console.error)
+  .finally(() => {
+    app.listen(PORT, () => console.log(`API running on http://localhost:${PORT}`))
+  })
