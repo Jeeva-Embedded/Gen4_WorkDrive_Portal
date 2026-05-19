@@ -45,7 +45,7 @@ function AppShell() {
     <div className={`app-shell${sidebarOpen ? ' app-shell--sidebar-open' : ''}`}>
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} addToast={addToast} />
       <div className="main-area">
-        <Topbar onMenuClick={() => setSidebarOpen((v) => !v)} />
+        <Topbar onMenuClick={() => setSidebarOpen((v) => !v)} addToast={addToast} />
         <div className="page-content">
           <Routes>
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
