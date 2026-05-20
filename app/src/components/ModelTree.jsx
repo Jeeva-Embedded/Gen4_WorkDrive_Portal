@@ -285,8 +285,13 @@ export default function ModelTree({ addToast }) {
       <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: 20, alignItems: 'start' }}>
 
         {/* ── LEFT: Folder Picker ── */}
-        <div style={{ background: 'var(--card)', borderRadius: 12, border: '1px solid var(--border)', overflow: 'hidden', boxShadow: 'var(--shadow)' }}>
-          <div style={{ padding: '12px 14px', borderBottom: '1px solid var(--border)', fontWeight: 700, fontSize: 13, color: 'var(--navy)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{
+          background: 'var(--card)', borderRadius: 12, border: '1px solid var(--border)',
+          boxShadow: 'var(--shadow)', display: 'flex', flexDirection: 'column',
+          height: 'calc(100vh - 160px)', minHeight: 420, overflow: 'hidden',
+        }}>
+          {/* Header */}
+          <div style={{ padding: '12px 14px', borderBottom: '1px solid var(--border)', fontWeight: 700, fontSize: 13, color: 'var(--navy)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
             Select Folder
             <button className="icon-btn" onClick={loadWorkspaces} title="Reload workspaces" style={{ width: 24, height: 24 }}>
               <IconRefresh size={13} />
@@ -295,7 +300,7 @@ export default function ModelTree({ addToast }) {
 
           {/* Breadcrumb inside picker */}
           {breadcrumb.length > 0 && (
-            <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap', background: '#f8fafc' }}>
+            <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap', background: '#f8fafc', flexShrink: 0 }}>
               {breadcrumb.length > 1 && (
                 <button
                   onClick={() => goToCrumb(breadcrumb.length - 2)}
@@ -322,12 +327,11 @@ export default function ModelTree({ addToast }) {
             </div>
           )}
 
-          {/* Workspace list or subfolder list */}
-          <div style={{ maxHeight: 400, overflowY: 'auto' }}>
+          {/* Workspace list or subfolder list — scrollable, fills remaining space */}
+          <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
             {wsLoading || folderLoading ? (
               <div style={{ padding: '20px', textAlign: 'center', color: 'var(--muted)', fontSize: 12 }}>Loading…</div>
             ) : !selectedWs ? (
-              // Show workspaces
               workspaces.length === 0 ? (
                 <div style={{ padding: 16, color: 'var(--muted)', fontSize: 12 }}>No workspaces found</div>
               ) : (
@@ -350,35 +354,32 @@ export default function ModelTree({ addToast }) {
                 ))
               )
             ) : (
-              // Show subfolders of current breadcrumb
-              <>
-                {folderItems.length === 0 ? (
-                  <div style={{ padding: 14, color: 'var(--muted)', fontSize: 12 }}>No subfolders here</div>
-                ) : (
-                  folderItems.map(f => (
-                    <button
-                      key={f.id}
-                      onClick={() => drillInto(f)}
-                      style={{
-                        width: '100%', display: 'flex', alignItems: 'center', gap: 8,
-                        padding: '9px 14px', border: 'none', borderBottom: '1px solid var(--border)',
-                        background: 'transparent', cursor: 'pointer', textAlign: 'left', fontSize: 12, fontWeight: 500,
-                      }}
-                      onMouseEnter={e => e.currentTarget.style.background = '#f0f4f8'}
-                      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                    >
-                      <IconFolder size={14} style={{ color: '#f59e0b', flexShrink: 0 }} />
-                      <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</span>
-                      <IconChevronRight size={11} style={{ color: 'var(--muted)', flexShrink: 0 }} />
-                    </button>
-                  ))
-                )}
-              </>
+              folderItems.length === 0 ? (
+                <div style={{ padding: 14, color: 'var(--muted)', fontSize: 12 }}>No subfolders — generate tree for this folder</div>
+              ) : (
+                folderItems.map(f => (
+                  <button
+                    key={f.id}
+                    onClick={() => drillInto(f)}
+                    style={{
+                      width: '100%', display: 'flex', alignItems: 'center', gap: 8,
+                      padding: '9px 14px', border: 'none', borderBottom: '1px solid var(--border)',
+                      background: 'transparent', cursor: 'pointer', textAlign: 'left', fontSize: 12, fontWeight: 500,
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.background = '#f0f4f8'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                  >
+                    <IconFolder size={14} style={{ color: '#f59e0b', flexShrink: 0 }} />
+                    <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</span>
+                    <IconChevronRight size={11} style={{ color: 'var(--muted)', flexShrink: 0 }} />
+                  </button>
+                ))
+              )
             )}
           </div>
 
-          {/* Generate button — always visible */}
-          <div style={{ padding: 12, borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {/* Generate button — pinned to bottom, always visible */}
+          <div style={{ padding: 12, borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 8, flexShrink: 0, background: 'var(--card)' }}>
             <div style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600 }}>
               {currentFolder
                 ? <>Selected: <span style={{ color: 'var(--navy)' }}>{currentFolder.name}</span></>
@@ -419,19 +420,15 @@ export default function ModelTree({ addToast }) {
                 <IconSearch size={13} /> Generate Tree
               </button>
             )}
-          </div>
-
-          {/* Back to workspaces */}
-          {selectedWs && (
-            <div style={{ padding: '6px 12px', borderTop: '1px solid var(--border)' }}>
+            {selectedWs && (
               <button
                 onClick={() => { setSelectedWs(null); setBreadcrumb([]); setFolderItems([]); setTree(null) }}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 4 }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'center', paddingTop: 2 }}
               >
                 <IconArrowLeft size={11} /> All Workspaces
               </button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         {/* ── RIGHT: Tree Result ── */}
