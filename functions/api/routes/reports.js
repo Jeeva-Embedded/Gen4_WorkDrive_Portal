@@ -1,6 +1,6 @@
 const express = require('express')
 const { authMiddleware, requireRole } = require('../middleware/auth')
-const { getDatastore } = require('../utils/datastore')
+const { getDatastore, getWdDownloadTotal } = require('../utils/datastore')
 
 const router = express.Router()
 router.use(authMiddleware)
@@ -10,11 +10,12 @@ router.get('/', async (req, res) => {
   const { from, to } = req.query
   try {
     const db = getDatastore(req)
-    const [docRows, delRows, userRows, wdDelRows] = await Promise.all([
+    const [docRows, delRows, userRows, wdDelRows, wdDlTotal] = await Promise.all([
       db.zcql().executeZCQLQuery('SELECT * FROM documents ORDER BY uploaded_date DESC'),
       db.zcql().executeZCQLQuery('SELECT * FROM delete_requests ORDER BY created_at DESC'),
       db.zcql().executeZCQLQuery('SELECT * FROM user_roles ORDER BY added_date DESC'),
       db.zcql().executeZCQLQuery('SELECT * FROM wd_delete_requests ORDER BY requested_at DESC'),
+      getWdDownloadTotal(),
     ])
 
     const docs   = (docRows   || []).map(r => r.documents)
@@ -137,7 +138,7 @@ router.get('/', async (req, res) => {
       modifications: filtered.filter(a => a.type === 'Modification').length,
       delete_reqs:   filtered.filter(a => a.type === 'Delete Request').length,
       users_added:   filtered.filter(a => a.type === 'User Added').length,
-      total_downloads: filtered.filter(a => a.type === 'Upload').reduce((s, a) => s + (parseInt(a.downloads) || 0), 0),
+      total_downloads: filtered.filter(a => a.type === 'Upload').reduce((s, a) => s + (parseInt(a.downloads) || 0), 0) + (wdDlTotal || 0),
     }
 
     res.json({ activities: filtered, summary })
