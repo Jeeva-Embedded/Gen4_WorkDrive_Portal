@@ -117,13 +117,15 @@ export default function ModelTree({ addToast }) {
   // Folder picker state
   const [workspaces, setWorkspaces] = useState([])
   const [wsLoading, setWsLoading] = useState(false)
-  const [selectedWs, setSelectedWs] = useState(null)
-  const [breadcrumb, setBreadcrumb] = useState([]) // [{id, name}]
-  const [folderItems, setFolderItems] = useState([]) // subfolders of current selection
+  // selectedFolder = the folder chosen FOR generation (click row to set)
+  const [selectedFolder, setSelectedFolder] = useState(null) // {id, name}
+  // navCrumbs = navigation path for browsing subfolders (click → arrow to drill)
+  const [navCrumbs, setNavCrumbs] = useState([]) // [{id, name}]
+  const [folderItems, setFolderItems] = useState([])
   const [folderLoading, setFolderLoading] = useState(false)
 
   // Tree generation state
-  const [tree, setTree] = useState(null) // root node
+  const [tree, setTree] = useState(null)
   const [scanning, setScanning] = useState(false)
   const [scanCount, setScanCount] = useState(0)
   const [scanStatus, setScanStatus] = useState('')
@@ -132,10 +134,7 @@ export default function ModelTree({ addToast }) {
   const [copied, setCopied] = useState(false)
   const stopRef = useRef(false)
 
-  // Load workspaces on mount
-  useEffect(() => {
-    loadWorkspaces()
-  }, [])
+  useEffect(() => { loadWorkspaces() }, [])
 
   async function loadWorkspaces() {
     setWsLoading(true)
@@ -149,26 +148,30 @@ export default function ModelTree({ addToast }) {
     }
   }
 
-  // Select a workspace → show its subfolders
-  async function selectWorkspace(ws) {
-    setSelectedWs(ws)
-    setBreadcrumb([{ id: ws.id, name: ws.name }])
+  // Click folder row → SELECT it for generation (no navigation)
+  function pickFolder(folder) {
+    setSelectedFolder({ id: folder.id, name: folder.name })
     setTree(null)
-    loadSubfolders(ws.id)
   }
 
-  // Drill into a subfolder
-  async function drillInto(folder) {
-    setBreadcrumb(prev => [...prev, { id: folder.id, name: folder.name }])
-    setTree(null)
+  // Click → arrow → DRILL INTO folder to browse subfolders
+  function drillInto(folder, e) {
+    e.stopPropagation()
+    const crumb = { id: folder.id, name: folder.name }
+    setNavCrumbs(prev => [...prev, crumb])
     loadSubfolders(folder.id)
   }
 
-  // Go back via breadcrumb
-  async function goToCrumb(index) {
-    const newCrumbs = breadcrumb.slice(0, index + 1)
-    setBreadcrumb(newCrumbs)
-    setTree(null)
+  // Navigate back via breadcrumb
+  function goToCrumb(index) {
+    if (index < 0) {
+      // Back to workspace list
+      setNavCrumbs([])
+      setFolderItems([])
+      return
+    }
+    const newCrumbs = navCrumbs.slice(0, index + 1)
+    setNavCrumbs(newCrumbs)
     loadSubfolders(newCrumbs[newCrumbs.length - 1].id)
   }
 
@@ -189,34 +192,21 @@ export default function ModelTree({ addToast }) {
   async function fetchNode(id, name, type, depth) {
     if (stopRef.current) return { id, name, type, children: [], error: false }
     setScanStatus(`Scanning: ${name}`)
-
-    if (type === 'file' || depth >= maxDepth) {
-      return { id, name, type, children: null, error: false }
-    }
-
+    if (type === 'file' || depth >= maxDepth) return { id, name, type, children: null, error: false }
     try {
       const res = await api.workdrive.files(id)
-      const items = (res.items || [])
+      const items = res.items || []
       setScanCount(c => c + 1)
-
-      // folders first, then files
       items.sort((a, b) => {
         if (!a.is_folder && b.is_folder) return 1
         if (a.is_folder && !b.is_folder) return -1
         return a.name.localeCompare(b.name)
       })
-
       const children = []
       for (const item of items) {
         if (stopRef.current) break
         await sleep(100)
-        const child = await fetchNode(
-          item.id,
-          item.name,
-          item.is_folder ? 'folder' : 'file',
-          depth + 1
-        )
-        children.push(child)
+        children.push(await fetchNode(item.id, item.name, item.is_folder ? 'folder' : 'file', depth + 1))
       }
       return { id, name, type, children, error: false }
     } catch {
@@ -226,24 +216,20 @@ export default function ModelTree({ addToast }) {
   }
 
   async function generateTree() {
-    if (!breadcrumb.length) return
-    const current = breadcrumb[breadcrumb.length - 1]
+    if (!selectedFolder) return
     stopRef.current = false
     setScanning(true)
     setTree(null)
     setScanCount(0)
     setScanStatus('Starting scan…')
-
-    const root = await fetchNode(current.id, current.name, 'folder', 0)
+    const root = await fetchNode(selectedFolder.id, selectedFolder.name, 'folder', 0)
     setTree(root)
     setScanning(false)
     setScanStatus(stopRef.current ? 'Scan stopped.' : 'Done.')
   }
 
   // ── Export helpers ────────────────────────────────────────────────────────
-  function getTextOutput() {
-    return tree ? toTextTree(tree) : ''
-  }
+  function getTextOutput() { return tree ? toTextTree(tree) : '' }
 
   function handleCopy() {
     navigator.clipboard.writeText(getTextOutput()).then(() => {
@@ -255,10 +241,8 @@ export default function ModelTree({ addToast }) {
   function handleExportText() {
     const blob = new Blob([getTextOutput()], { type: 'text/plain' })
     const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `${tree?.name || 'tree'}-model-tree.txt`
-    a.click()
+    const a = document.createElement('a'); a.href = url
+    a.download = `${tree?.name || 'tree'}-model-tree.txt`; a.click()
     URL.revokeObjectURL(url)
   }
 
@@ -266,15 +250,15 @@ export default function ModelTree({ addToast }) {
     const json = JSON.stringify(toJsonTree(tree), null, 2)
     const blob = new Blob([json], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `${tree?.name || 'tree'}-model-tree.json`
-    a.click()
+    const a = document.createElement('a'); a.href = url
+    a.download = `${tree?.name || 'tree'}-model-tree.json`; a.click()
     URL.revokeObjectURL(url)
   }
 
   const stats = tree ? countTree(tree) : null
-  const currentFolder = breadcrumb[breadcrumb.length - 1]
+  // Determine what list to show: workspace list or subfolder list
+  const inSubfolder = navCrumbs.length > 0
+  const displayItems = inSubfolder ? folderItems : workspaces
 
   return (
     <div className="page">
@@ -293,97 +277,102 @@ export default function ModelTree({ addToast }) {
           {/* Header */}
           <div style={{ padding: '12px 14px', borderBottom: '1px solid var(--border)', fontWeight: 700, fontSize: 13, color: 'var(--navy)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
             Select Folder
-            <button className="icon-btn" onClick={loadWorkspaces} title="Reload workspaces" style={{ width: 24, height: 24 }}>
+            <button className="icon-btn" onClick={loadWorkspaces} title="Reload" style={{ width: 24, height: 24 }}>
               <IconRefresh size={13} />
             </button>
           </div>
 
-          {/* Breadcrumb inside picker */}
-          {breadcrumb.length > 0 && (
-            <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap', background: '#f8fafc', flexShrink: 0 }}>
-              {breadcrumb.length > 1 && (
-                <button
-                  onClick={() => goToCrumb(breadcrumb.length - 2)}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 2, display: 'flex' }}
-                >
-                  <IconArrowLeft size={12} />
-                </button>
-              )}
-              {breadcrumb.map((c, i) => (
+          {/* Breadcrumb navigation (only when drilled into subfolders) */}
+          {inSubfolder && (
+            <div style={{ padding: '7px 10px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 3, flexWrap: 'wrap', background: '#f8fafc', flexShrink: 0 }}>
+              <button onClick={() => goToCrumb(-1)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: '1px 3px', fontSize: 11, display: 'flex', alignItems: 'center', gap: 3 }}>
+                <IconArrowLeft size={11} /> Workspaces
+              </button>
+              {navCrumbs.map((c, i) => (
                 <React.Fragment key={c.id}>
-                  {i > 0 && <IconChevronRight size={10} style={{ color: 'var(--muted)', flexShrink: 0 }} />}
+                  <IconChevronRight size={9} style={{ color: 'var(--muted)', flexShrink: 0 }} />
                   <button
-                    onClick={() => i < breadcrumb.length - 1 ? goToCrumb(i) : undefined}
+                    onClick={() => i < navCrumbs.length - 1 ? goToCrumb(i) : undefined}
                     style={{
-                      background: 'none', border: 'none', cursor: i < breadcrumb.length - 1 ? 'pointer' : 'default',
-                      fontSize: 11, fontWeight: 600, color: i === breadcrumb.length - 1 ? 'var(--navy)' : 'var(--muted)',
-                      padding: '1px 2px', maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                      background: 'none', border: 'none',
+                      cursor: i < navCrumbs.length - 1 ? 'pointer' : 'default',
+                      fontSize: 11, fontWeight: 600,
+                      color: i === navCrumbs.length - 1 ? 'var(--navy)' : 'var(--muted)',
+                      padding: '1px 2px', maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                     }}
-                  >
-                    {c.name}
-                  </button>
+                  >{c.name}</button>
                 </React.Fragment>
               ))}
             </div>
           )}
 
-          {/* Workspace list or subfolder list — scrollable, fills remaining space */}
+          {/* Instruction hint */}
+          <div style={{ padding: '6px 12px', fontSize: 10, color: 'var(--muted)', background: '#fffbeb', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+            Click a folder to <strong>select</strong> it · Click <strong>→</strong> to browse subfolders
+          </div>
+
+          {/* Folder list — scrollable */}
           <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
             {wsLoading || folderLoading ? (
               <div style={{ padding: '20px', textAlign: 'center', color: 'var(--muted)', fontSize: 12 }}>Loading…</div>
-            ) : !selectedWs ? (
-              workspaces.length === 0 ? (
-                <div style={{ padding: 16, color: 'var(--muted)', fontSize: 12 }}>No workspaces found</div>
-              ) : (
-                workspaces.map(ws => (
-                  <button
-                    key={ws.id}
-                    onClick={() => selectWorkspace(ws)}
-                    style={{
-                      width: '100%', display: 'flex', alignItems: 'center', gap: 8,
-                      padding: '10px 14px', border: 'none', borderBottom: '1px solid var(--border)',
-                      background: 'transparent', cursor: 'pointer', textAlign: 'left', fontSize: 13, fontWeight: 600,
-                    }}
-                    onMouseEnter={e => e.currentTarget.style.background = '#f0f4f8'}
-                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                  >
-                    <IconFolder size={15} style={{ color: '#f59e0b', flexShrink: 0 }} />
-                    <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ws.name}</span>
-                    <IconChevronRight size={12} style={{ color: 'var(--muted)', flexShrink: 0 }} />
-                  </button>
-                ))
-              )
+            ) : displayItems.length === 0 ? (
+              <div style={{ padding: 14, color: 'var(--muted)', fontSize: 12 }}>
+                {inSubfolder ? 'No subfolders here' : 'No workspaces found'}
+              </div>
             ) : (
-              folderItems.length === 0 ? (
-                <div style={{ padding: 14, color: 'var(--muted)', fontSize: 12 }}>No subfolders — generate tree for this folder</div>
-              ) : (
-                folderItems.map(f => (
-                  <button
-                    key={f.id}
-                    onClick={() => drillInto(f)}
+              displayItems.map(item => {
+                const isSelected = selectedFolder?.id === item.id
+                return (
+                  <div
+                    key={item.id}
                     style={{
-                      width: '100%', display: 'flex', alignItems: 'center', gap: 8,
-                      padding: '9px 14px', border: 'none', borderBottom: '1px solid var(--border)',
-                      background: 'transparent', cursor: 'pointer', textAlign: 'left', fontSize: 12, fontWeight: 500,
+                      display: 'flex', alignItems: 'center',
+                      borderBottom: '1px solid var(--border)',
+                      background: isSelected ? '#eff6ff' : 'transparent',
+                      borderLeft: isSelected ? '3px solid var(--navy)' : '3px solid transparent',
+                      transition: 'background .1s',
                     }}
-                    onMouseEnter={e => e.currentTarget.style.background = '#f0f4f8'}
-                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                   >
-                    <IconFolder size={14} style={{ color: '#f59e0b', flexShrink: 0 }} />
-                    <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</span>
-                    <IconChevronRight size={11} style={{ color: 'var(--muted)', flexShrink: 0 }} />
-                  </button>
-                ))
-              )
+                    {/* Clickable name area → SELECT */}
+                    <button
+                      onClick={() => pickFolder(item)}
+                      style={{
+                        flex: 1, display: 'flex', alignItems: 'center', gap: 8,
+                        padding: '10px 10px 10px 11px', border: 'none',
+                        background: 'transparent', cursor: 'pointer', textAlign: 'left',
+                        fontSize: 13, fontWeight: isSelected ? 700 : 500,
+                        color: isSelected ? 'var(--navy)' : 'var(--text)',
+                        minWidth: 0,
+                      }}
+                    >
+                      <IconFolder size={14} style={{ color: isSelected ? 'var(--navy)' : '#f59e0b', flexShrink: 0 }} />
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</span>
+                    </button>
+                    {/* Arrow button → DRILL INTO subfolders */}
+                    <button
+                      onClick={(e) => drillInto(item, e)}
+                      title="Browse subfolders"
+                      style={{
+                        border: 'none', background: 'transparent', cursor: 'pointer',
+                        padding: '10px 12px', color: 'var(--muted)', display: 'flex', alignItems: 'center', flexShrink: 0,
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.color = 'var(--navy)' }}
+                      onMouseLeave={e => { e.currentTarget.style.color = 'var(--muted)' }}
+                    >
+                      <IconChevronRight size={13} />
+                    </button>
+                  </div>
+                )
+              })
             )}
           </div>
 
-          {/* Generate button — pinned to bottom, always visible */}
+          {/* Generate button — pinned to bottom */}
           <div style={{ padding: 12, borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 8, flexShrink: 0, background: 'var(--card)' }}>
             <div style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600 }}>
-              {currentFolder
-                ? <>Selected: <span style={{ color: 'var(--navy)' }}>{currentFolder.name}</span></>
-                : <span style={{ fontStyle: 'italic' }}>No folder selected yet</span>
+              {selectedFolder
+                ? <>Selected: <span style={{ color: 'var(--navy)' }}>{selectedFolder.name}</span></>
+                : <span style={{ fontStyle: 'italic' }}>Click a folder name to select it</span>
               }
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -407,25 +396,17 @@ export default function ModelTree({ addToast }) {
             ) : (
               <button
                 onClick={generateTree}
-                disabled={!currentFolder}
+                disabled={!selectedFolder}
                 style={{
                   width: '100%', padding: '9px', borderRadius: 8, border: 'none',
-                  background: currentFolder ? 'var(--navy)' : '#d1d5db',
+                  background: selectedFolder ? 'var(--navy)' : '#d1d5db',
                   color: '#fff', fontWeight: 700, fontSize: 13,
-                  cursor: currentFolder ? 'pointer' : 'not-allowed',
+                  cursor: selectedFolder ? 'pointer' : 'not-allowed',
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
                   transition: 'background .15s',
                 }}
               >
                 <IconSearch size={13} /> Generate Tree
-              </button>
-            )}
-            {selectedWs && (
-              <button
-                onClick={() => { setSelectedWs(null); setBreadcrumb([]); setFolderItems([]); setTree(null) }}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'center', paddingTop: 2 }}
-              >
-                <IconArrowLeft size={11} /> All Workspaces
               </button>
             )}
           </div>
