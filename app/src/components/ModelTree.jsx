@@ -407,11 +407,11 @@ export default function ModelTree({ addToast }) {
                 disabled={!selectedFolder}
                 style={{
                   width: '100%', padding: '10px', borderRadius: 8, border: 'none',
-                  background: selectedFolder ? 'var(--navy)' : '#d1d5db',
+                  background: '#1e40af',
                   color: '#fff', fontWeight: 700, fontSize: 14,
                   cursor: selectedFolder ? 'pointer' : 'not-allowed',
+                  opacity: selectedFolder ? 1 : 0.5,
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                  transition: 'background .15s',
                 }}
               >
                 <IconSearch size={14} /> Generate Tree
