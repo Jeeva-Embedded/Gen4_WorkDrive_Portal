@@ -260,4 +260,37 @@ async function getWdDownloadTotal() {
   return Object.values(db.wd_download_counts || {}).reduce((a, v) => a + v, 0)
 }
 
-module.exports = { getDatastore, initDb, seedDb, incrementWdDownload, getWdDownloadTotal }
+async function logWdDownload({ file_id, file_name, folder_name, downloaded_by, downloaded_by_name }) {
+  const rowId = `dl_${Date.now()}_${file_id}`
+  const data = JSON.stringify({
+    file_id, file_name, folder_name,
+    downloaded_by, downloaded_by_name,
+    downloaded_at: new Date().toISOString(),
+  })
+  if (process.env.DATABASE_URL) {
+    const pool = getPool()
+    await pool.query(
+      'INSERT INTO kv_store (collection, row_id, data) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING',
+      ['wd_download_logs', rowId, data]
+    )
+    return
+  }
+  const db = readDb()
+  if (!db.wd_download_logs) db.wd_download_logs = []
+  db.wd_download_logs.push({ row_id: rowId, data: JSON.parse(data) })
+  writeDb(db)
+}
+
+async function getWdDownloadLogs() {
+  if (process.env.DATABASE_URL) {
+    const pool = getPool()
+    const res = await pool.query(
+      "SELECT data FROM kv_store WHERE collection = 'wd_download_logs' ORDER BY (data->>'downloaded_at') DESC"
+    )
+    return res.rows.map(r => r.data)
+  }
+  const db = readDb()
+  return (db.wd_download_logs || []).map(r => r.data).sort((a, b) => new Date(b.downloaded_at) - new Date(a.downloaded_at))
+}
+
+module.exports = { getDatastore, initDb, seedDb, incrementWdDownload, getWdDownloadTotal, logWdDownload, getWdDownloadLogs }

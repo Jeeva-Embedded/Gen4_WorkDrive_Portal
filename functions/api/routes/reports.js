@@ -1,6 +1,6 @@
 const express = require('express')
 const { authMiddleware, requireRole } = require('../middleware/auth')
-const { getDatastore, getWdDownloadTotal } = require('../utils/datastore')
+const { getDatastore, getWdDownloadTotal, getWdDownloadLogs } = require('../utils/datastore')
 
 const router = express.Router()
 router.use(authMiddleware)
@@ -10,12 +10,13 @@ router.get('/', async (req, res) => {
   const { from, to } = req.query
   try {
     const db = getDatastore(req)
-    const [docRows, delRows, userRows, wdDelRows, wdDlTotal] = await Promise.all([
+    const [docRows, delRows, userRows, wdDelRows, wdDlTotal, wdDlLogs] = await Promise.all([
       db.zcql().executeZCQLQuery('SELECT * FROM documents ORDER BY uploaded_date DESC'),
       db.zcql().executeZCQLQuery('SELECT * FROM delete_requests ORDER BY created_at DESC'),
       db.zcql().executeZCQLQuery('SELECT * FROM user_roles ORDER BY added_date DESC'),
       db.zcql().executeZCQLQuery('SELECT * FROM wd_delete_requests ORDER BY requested_at DESC'),
       getWdDownloadTotal(),
+      getWdDownloadLogs(),
     ])
 
     const docs   = (docRows   || []).map(r => r.documents)
@@ -112,6 +113,24 @@ router.get('/', async (req, res) => {
         downloads:    '',
         notes:        `${u.name || ''} <${u.email}>`,
         rowid:        u.ROWID,
+      })
+    })
+
+    // WorkDrive download events
+    ;(wdDlLogs || []).forEach(d => {
+      activities.push({
+        date:         d.downloaded_at || '',
+        type:         'Download',
+        file_name:    d.file_name || '',
+        category:     d.folder_name || '',
+        sub_category: 'WorkDrive',
+        size:         '',
+        performed_by: d.downloaded_by || '',
+        reviewed_by:  '',
+        status:       'Completed',
+        downloads:    1,
+        notes:        d.downloaded_by_name || '',
+        rowid:        'dl_' + d.downloaded_at + '_' + d.file_id,
       })
     })
 

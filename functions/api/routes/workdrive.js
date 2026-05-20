@@ -1,7 +1,7 @@
 const express = require('express')
 const { authMiddleware, requireRole } = require('../middleware/auth')
 const { listFolderFiles, listTeamFolders, deleteFile, renameFile, moveFile, copyFile, createFolder } = require('../utils/zohoApi')
-const { incrementWdDownload, getDatastore } = require('../utils/datastore')
+const { incrementWdDownload, getDatastore, logWdDownload } = require('../utils/datastore')
 const { sendAccessRequestEmail, sendAccessGrantedEmail, sendWdDeleteRequestEmail } = require('../utils/mailer')
 
 const router = express.Router()
@@ -336,10 +336,19 @@ router.patch('/files/:fileId/move', requireRole('SUPER_ADMIN', 'ADMIN'), async (
 
 // POST /workdrive/track-download
 router.post('/track-download', async (req, res) => {
-  const { file_id } = req.body
+  const { file_id, file_name, folder_name } = req.body
   if (!file_id) return res.status(400).json({ error: 'file_id is required' })
   try {
-    const count = await incrementWdDownload(file_id)
+    const [count] = await Promise.all([
+      incrementWdDownload(file_id),
+      logWdDownload({
+        file_id,
+        file_name: file_name || file_id,
+        folder_name: folder_name || '',
+        downloaded_by: req.user?.email || '',
+        downloaded_by_name: req.user?.name || '',
+      }),
+    ])
     res.json({ success: true, count })
   } catch (err) {
     res.status(500).json({ error: err.message })

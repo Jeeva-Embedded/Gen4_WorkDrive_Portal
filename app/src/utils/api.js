@@ -75,7 +75,7 @@ export const api = {
     renameFile: (fileId, name) => request(`/workdrive/files/${fileId}/rename`, { method: 'PATCH', body: JSON.stringify({ name }) }),
     moveFile: (fileId, folder_id) => request(`/workdrive/files/${fileId}/move`, { method: 'PATCH', body: JSON.stringify({ folder_id }) }),
     createFolder: (parent_id, name) => request('/workdrive/folders/create', { method: 'POST', body: JSON.stringify({ parent_id, name }) }),
-    trackDownload: (file_id) => request('/workdrive/track-download', { method: 'POST', body: JSON.stringify({ file_id }) }).catch(() => {}),
+    trackDownload: (file_id, file_name, folder_name) => request('/workdrive/track-download', { method: 'POST', body: JSON.stringify({ file_id, file_name, folder_name }) }).catch(() => {}),
     permissions: () => request('/workdrive/permissions'),
     setPermissions: (folderId, data) => request(`/workdrive/permissions/${folderId}`, { method: 'POST', body: JSON.stringify(data) }),
     accessRequests: () => request('/workdrive/access-requests'),

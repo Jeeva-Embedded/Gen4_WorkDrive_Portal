@@ -733,7 +733,7 @@ export default function WorkDriveFiles({ addToast }) {
                             rel="noopener noreferrer"
                             className="icon-btn"
                             title="Download"
-                            onClick={() => api.workdrive.trackDownload(item.id)}
+                            onClick={() => api.workdrive.trackDownload(item.id, item.name, breadcrumb[breadcrumb.length - 1]?.name || '')}
                           >
                             <IconDownload size={15} />
                           </a>
