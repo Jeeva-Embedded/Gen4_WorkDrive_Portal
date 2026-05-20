@@ -377,44 +377,53 @@ export default function ModelTree({ addToast }) {
             )}
           </div>
 
-          {/* Generate button */}
-          {currentFolder && (
-            <div style={{ padding: 12, borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <div style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600 }}>
-                Selected: <span style={{ color: 'var(--navy)' }}>{currentFolder.name}</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <label style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600, flexShrink: 0 }}>Depth:</label>
-                <select
-                  value={maxDepth}
-                  onChange={e => setMaxDepth(+e.target.value)}
-                  disabled={scanning}
-                  style={{ flex: 1, padding: '4px 6px', borderRadius: 6, border: '1px solid var(--border)', fontSize: 11 }}
-                >
-                  {[2, 3, 4, 5, 6].map(d => <option key={d} value={d}>{d} levels</option>)}
-                </select>
-              </div>
-              {scanning ? (
-                <button
-                  onClick={() => { stopRef.current = true }}
-                  style={{ width: '100%', padding: '8px', borderRadius: 8, border: 'none', background: '#c0392b', color: '#fff', fontWeight: 700, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
-                >
-                  <IconPlayerStop size={13} /> Stop Scan
-                </button>
-              ) : (
-                <button
-                  onClick={generateTree}
-                  style={{ width: '100%', padding: '8px', borderRadius: 8, border: 'none', background: 'var(--navy)', color: '#fff', fontWeight: 700, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
-                >
-                  <IconSearch size={13} /> Generate Tree
-                </button>
-              )}
+          {/* Generate button — always visible */}
+          <div style={{ padding: 12, borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600 }}>
+              {currentFolder
+                ? <>Selected: <span style={{ color: 'var(--navy)' }}>{currentFolder.name}</span></>
+                : <span style={{ fontStyle: 'italic' }}>No folder selected yet</span>
+              }
             </div>
-          )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <label style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600, flexShrink: 0 }}>Depth:</label>
+              <select
+                value={maxDepth}
+                onChange={e => setMaxDepth(+e.target.value)}
+                disabled={scanning}
+                style={{ flex: 1, padding: '4px 6px', borderRadius: 6, border: '1px solid var(--border)', fontSize: 11 }}
+              >
+                {[2, 3, 4, 5, 6].map(d => <option key={d} value={d}>{d} levels</option>)}
+              </select>
+            </div>
+            {scanning ? (
+              <button
+                onClick={() => { stopRef.current = true }}
+                style={{ width: '100%', padding: '9px', borderRadius: 8, border: 'none', background: '#c0392b', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+              >
+                <IconPlayerStop size={13} /> Stop Scan
+              </button>
+            ) : (
+              <button
+                onClick={generateTree}
+                disabled={!currentFolder}
+                style={{
+                  width: '100%', padding: '9px', borderRadius: 8, border: 'none',
+                  background: currentFolder ? 'var(--navy)' : '#d1d5db',
+                  color: '#fff', fontWeight: 700, fontSize: 13,
+                  cursor: currentFolder ? 'pointer' : 'not-allowed',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                  transition: 'background .15s',
+                }}
+              >
+                <IconSearch size={13} /> Generate Tree
+              </button>
+            )}
+          </div>
 
           {/* Back to workspaces */}
           {selectedWs && (
-            <div style={{ padding: '8px 12px', borderTop: '1px solid var(--border)' }}>
+            <div style={{ padding: '6px 12px', borderTop: '1px solid var(--border)' }}>
               <button
                 onClick={() => { setSelectedWs(null); setBreadcrumb([]); setFolderItems([]); setTree(null) }}
                 style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 4 }}
