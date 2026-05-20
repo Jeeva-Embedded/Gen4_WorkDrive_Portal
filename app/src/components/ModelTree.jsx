@@ -374,43 +374,47 @@ export default function ModelTree({ addToast }) {
         {/* ── RIGHT: Controls + Tree Result ── */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-          {/* Generate controls bar — always at top of right panel */}
-          <div style={{ background: 'var(--card)', borderRadius: 12, border: '1px solid var(--border)', boxShadow: 'var(--shadow)', padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-            <div style={{ flex: 1, minWidth: 160, fontSize: 13, fontWeight: 600, color: selectedFolder ? 'var(--navy)' : 'var(--muted)', fontStyle: selectedFolder ? 'normal' : 'italic' }}>
-              {selectedFolder ? <>📁 {selectedFolder.name}</> : 'Select a folder on the left'}
+          {/* Generate controls bar — top of right panel */}
+          <div style={{ background: 'var(--card)', borderRadius: 12, border: '1px solid var(--border)', boxShadow: 'var(--shadow)', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {/* Row 1: folder name + depth */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ flex: 1, fontSize: 13, fontWeight: 600, color: selectedFolder ? 'var(--navy)' : 'var(--muted)', fontStyle: selectedFolder ? 'normal' : 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {selectedFolder ? <>📁 {selectedFolder.name}</> : 'Select a folder on the left'}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                <label style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>Depth:</label>
+                <select
+                  value={maxDepth}
+                  onChange={e => setMaxDepth(+e.target.value)}
+                  disabled={scanning}
+                  style={{ padding: '5px 8px', borderRadius: 6, border: '1px solid var(--border)', fontSize: 12 }}
+                >
+                  {[2, 3, 4, 5, 6].map(d => <option key={d} value={d}>{d} levels</option>)}
+                </select>
+              </div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <label style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600, whiteSpace: 'nowrap' }}>Depth:</label>
-              <select
-                value={maxDepth}
-                onChange={e => setMaxDepth(+e.target.value)}
-                disabled={scanning}
-                style={{ padding: '5px 8px', borderRadius: 6, border: '1px solid var(--border)', fontSize: 12 }}
-              >
-                {[2, 3, 4, 5, 6].map(d => <option key={d} value={d}>{d} levels</option>)}
-              </select>
-            </div>
+            {/* Row 2: full-width generate / stop button */}
             {scanning ? (
               <button
                 onClick={() => { stopRef.current = true }}
-                style={{ padding: '8px 18px', borderRadius: 8, border: 'none', background: '#c0392b', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}
+                style={{ width: '100%', padding: '10px', borderRadius: 8, border: 'none', background: '#c0392b', color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
               >
-                <IconPlayerStop size={13} /> Stop Scan
+                <IconPlayerStop size={14} /> Stop Scan
               </button>
             ) : (
               <button
                 onClick={generateTree}
                 disabled={!selectedFolder}
                 style={{
-                  padding: '8px 20px', borderRadius: 8, border: 'none',
+                  width: '100%', padding: '10px', borderRadius: 8, border: 'none',
                   background: selectedFolder ? 'var(--navy)' : '#d1d5db',
-                  color: '#fff', fontWeight: 700, fontSize: 13,
+                  color: '#fff', fontWeight: 700, fontSize: 14,
                   cursor: selectedFolder ? 'pointer' : 'not-allowed',
-                  display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
                   transition: 'background .15s',
                 }}
               >
-                <IconSearch size={13} /> Generate Tree
+                <IconSearch size={14} /> Generate Tree
               </button>
             )}
           </div>
