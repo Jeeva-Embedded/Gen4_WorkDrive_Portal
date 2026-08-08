@@ -186,3 +186,4 @@ All routes are mounted under `/api` and (except `/health`, `/test-email`, and `/
 | `VIEWER` | View documents/files they have access to, request deletion or folder access |
 
 The first user ever to log in (or any email listed in `SUPER_ADMIN_EMAILS`) is bootstrapped as `SUPER_ADMIN`; all subsequent sign-ins default to `VIEWER` until an admin changes their role.
+In Render the Profile users details available.Check The electronics Login or Jeeva Render account.
